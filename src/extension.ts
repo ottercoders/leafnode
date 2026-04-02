@@ -1,0 +1,482 @@
+import * as vscode from "vscode";
+import { ConnectionManager } from "./connections/manager";
+import {
+  ConnectionsTreeProvider,
+  ConnectionTreeItem,
+} from "./views/trees/connections";
+import { StreamsTreeProvider } from "./views/trees/streams";
+import { KvTreeProvider } from "./views/trees/kv";
+import { WebviewPanelManager } from "./views/webviews/webview-panel-manager";
+import { WebviewMessageRouter } from "./views/webviews/message-router";
+import { runConnectionWizard } from "./views/input/connection-wizard";
+import {
+  discoverNatsContexts,
+  contextToConnectionConfig,
+  readCredsFile,
+  readNkeyFile,
+} from "./connections/context-import";
+
+let connectionManager: ConnectionManager;
+
+export function activate(context: vscode.ExtensionContext): void {
+  connectionManager = new ConnectionManager(context.globalState, context.secrets);
+  context.subscriptions.push(connectionManager);
+
+  // Webview infrastructure
+  const panelManager = new WebviewPanelManager(context.extensionUri);
+  context.subscriptions.push(panelManager);
+
+  const messageRouter = new WebviewMessageRouter(connectionManager);
+  context.subscriptions.push(messageRouter);
+
+  // Clear services cache on disconnect
+  connectionManager.onDidChangeConnectionStatus((id) => {
+    if (connectionManager.getStatus(id) === "disconnected") {
+      messageRouter.clearServicesCache(id);
+    }
+  });
+
+  // Tree views
+  const connectionsTree = new ConnectionsTreeProvider(connectionManager);
+  const streamsTree = new StreamsTreeProvider(connectionManager);
+  const kvTree = new KvTreeProvider(connectionManager);
+
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider("leafnode.connections", connectionsTree),
+    vscode.window.registerTreeDataProvider("leafnode.streams", streamsTree),
+    vscode.window.registerTreeDataProvider("leafnode.kv", kvTree),
+  );
+
+  // Status bar
+  const statusBar = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    50,
+  );
+  statusBar.command = "leafnode.connect";
+  statusBar.text = "$(plug) NATS";
+  statusBar.tooltip = "NATS Connection";
+  statusBar.show();
+  context.subscriptions.push(statusBar);
+
+  function updateStatusBar() {
+    const connected = connectionManager.getConnectedIds();
+    if (connected.length > 0) {
+      const configs = connectionManager.getSavedConnections();
+      const names = connected
+        .map((id) => configs.find((c) => c.id === id)?.name ?? id)
+        .join(", ");
+      statusBar.text = `$(pass-filled) ${names}`;
+      statusBar.tooltip = `Connected: ${names}\nClick to manage connections`;
+    } else {
+      statusBar.text = "$(plug) NATS";
+      statusBar.tooltip = "NATS — Click to connect";
+    }
+  }
+
+  connectionManager.onDidChangeConnectionStatus(updateStatusBar);
+  connectionManager.onDidChangeConnections(updateStatusBar);
+
+  // Helper: get first connected connection ID
+  function getActiveConnectionId(): string | undefined {
+    const ids = connectionManager.getConnectedIds();
+    return ids[0];
+  }
+
+  // Commands
+  context.subscriptions.push(
+    // Connection commands
+    vscode.commands.registerCommand("leafnode.addConnection", () =>
+      runConnectionWizard(connectionManager),
+    ),
+
+    vscode.commands.registerCommand("leafnode.connect", async (item?: ConnectionTreeItem) => {
+      let id: string;
+      if (item) {
+        id = item.config.id;
+      } else {
+        const configs = connectionManager.getSavedConnections();
+        if (configs.length === 0) {
+          const result = await runConnectionWizard(connectionManager);
+          if (!result) return;
+          id = result.id;
+        } else {
+          const pick = await vscode.window.showQuickPick(
+            configs.map((c) => ({ label: c.name, description: c.servers[0], id: c.id })),
+            { placeHolder: "Select connection" },
+          );
+          if (!pick) return;
+          id = pick.id;
+        }
+      }
+      try {
+        await connectionManager.connect(id);
+      } catch (err) {
+        vscode.window.showErrorMessage(
+          `Failed to connect: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }),
+
+    vscode.commands.registerCommand("leafnode.disconnect", async (item?: ConnectionTreeItem) => {
+      let id: string;
+      if (item) {
+        id = item.config.id;
+      } else {
+        const connected = connectionManager.getConnectedIds();
+        if (connected.length === 0) return;
+        const configs = connectionManager.getSavedConnections();
+        const pick = await vscode.window.showQuickPick(
+          configs
+            .filter((c) => connected.includes(c.id))
+            .map((c) => ({ label: c.name, id: c.id })),
+          { placeHolder: "Select connection to disconnect" },
+        );
+        if (!pick) return;
+        id = pick.id;
+      }
+      await connectionManager.disconnect(id);
+    }),
+
+    vscode.commands.registerCommand("leafnode.removeConnection", async (item?: ConnectionTreeItem) => {
+      if (!item) return;
+      const confirm = await vscode.window.showWarningMessage(
+        `Remove connection "${item.config.name}"?`,
+        { modal: true },
+        "Remove",
+      );
+      if (confirm !== "Remove") return;
+      await connectionManager.removeConnection(item.config.id);
+    }),
+
+    vscode.commands.registerCommand("leafnode.importNatsContext", async () => {
+      const contexts = await discoverNatsContexts();
+      if (contexts.length === 0) {
+        vscode.window.showInformationMessage("No NATS CLI contexts found.");
+        return;
+      }
+
+      const picks = await vscode.window.showQuickPick(
+        contexts.map((c) => ({
+          label: c.name,
+          description: c.context.url ?? "",
+          picked: true,
+          context: c,
+        })),
+        { canPickMany: true, placeHolder: "Select contexts to import" },
+      );
+      if (!picks || picks.length === 0) return;
+
+      let imported = 0;
+      for (const pick of picks) {
+        const { config, secrets } = contextToConnectionConfig(
+          pick.context.name,
+          pick.context.context,
+        );
+
+        if (secrets.token) {
+          await connectionManager.storeSecret(config.id, "token", secrets.token);
+        }
+        if (secrets.password) {
+          await connectionManager.storeSecret(config.id, "password", secrets.password);
+        }
+        if (secrets.credsPath) {
+          const creds = await readCredsFile(secrets.credsPath);
+          if (creds) await connectionManager.storeSecret(config.id, "creds", creds);
+        }
+        if (secrets.nkeyPath) {
+          const seed = await readNkeyFile(secrets.nkeyPath);
+          if (seed) await connectionManager.storeSecret(config.id, "nkeySeed", seed);
+        }
+
+        await connectionManager.addConnection(config);
+        imported++;
+      }
+
+      vscode.window.showInformationMessage(
+        `Imported ${imported} NATS context${imported !== 1 ? "s" : ""}.`,
+      );
+    }),
+
+    // Stream commands
+    vscode.commands.registerCommand("leafnode.streams.refresh", () => {
+      streamsTree.refresh();
+    }),
+
+    vscode.commands.registerCommand("leafnode.streams.browseMessages",
+      (item: { connectionId: string; stream: { name: string } }) => {
+        const panelId = `messages:${item.connectionId}:${item.stream.name}`;
+        const panel = panelManager.createOrShow(
+          panelId,
+          `Messages: ${item.stream.name}`,
+          "message-browser",
+          vscode.ViewColumn.One,
+        );
+        messageRouter.registerPanel(panel, panelId);
+        panel.webview.postMessage({
+          type: "init",
+          connectionId: item.connectionId,
+          streamName: item.stream.name,
+        });
+      },
+    ),
+
+    vscode.commands.registerCommand("leafnode.streams.purge",
+      async (item: { connectionId: string; stream: { name: string } }) => {
+        const confirm = await vscode.window.showWarningMessage(
+          `Purge all messages from stream "${item.stream.name}"?`,
+          { modal: true },
+          "Purge",
+        );
+        if (confirm !== "Purge") return;
+        const { createServices } = await import("./services");
+        const nc = connectionManager.getConnection(item.connectionId);
+        if (!nc) return;
+        try {
+          await createServices(nc).jetstream.purgeStream(item.stream.name);
+          streamsTree.refresh();
+          vscode.window.showInformationMessage(`Purged stream "${item.stream.name}".`);
+        } catch (err) {
+          vscode.window.showErrorMessage(
+            `Failed to purge: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      },
+    ),
+
+    vscode.commands.registerCommand("leafnode.streams.delete",
+      async (item: { connectionId: string; stream: { name: string } }) => {
+        const confirm = await vscode.window.showWarningMessage(
+          `Delete stream "${item.stream.name}"? This cannot be undone.`,
+          { modal: true },
+          "Delete",
+        );
+        if (confirm !== "Delete") return;
+        const { createServices } = await import("./services");
+        const nc = connectionManager.getConnection(item.connectionId);
+        if (!nc) return;
+        try {
+          await createServices(nc).jetstream.deleteStream(item.stream.name);
+          streamsTree.refresh();
+          vscode.window.showInformationMessage(`Deleted stream "${item.stream.name}".`);
+        } catch (err) {
+          vscode.window.showErrorMessage(
+            `Failed to delete: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      },
+    ),
+
+    // Pub/Sub command
+    vscode.commands.registerCommand("leafnode.openPubSub", () => {
+      const connId = getActiveConnectionId();
+      if (!connId) {
+        vscode.window.showWarningMessage("Connect to a NATS server first.");
+        return;
+      }
+      const panelId = `pubsub:${connId}`;
+      const panel = panelManager.createOrShow(
+        panelId,
+        "NATS Pub/Sub",
+        "pub-sub",
+        vscode.ViewColumn.One,
+      );
+      messageRouter.registerPanel(panel, panelId);
+      panel.webview.postMessage({
+        type: "init",
+        connectionId: connId,
+      });
+    }),
+
+    // KV commands
+    vscode.commands.registerCommand("leafnode.kv.refresh", () => {
+      kvTree.refresh();
+    }),
+
+    vscode.commands.registerCommand("leafnode.kv.viewEntry",
+      (item: { connectionId: string; bucket: string; key: string }) => {
+        const panelId = `kv:${item.connectionId}:${item.bucket}:${item.key}`;
+        const panel = panelManager.createOrShow(
+          panelId,
+          `KV: ${item.bucket}/${item.key}`,
+          "kv-editor",
+          vscode.ViewColumn.One,
+        );
+        messageRouter.registerPanel(panel, panelId);
+        panel.webview.postMessage({
+          type: "init",
+          connectionId: item.connectionId,
+          bucket: item.bucket,
+          key: item.key,
+        });
+      },
+    ),
+
+    vscode.commands.registerCommand("leafnode.kv.deleteKey",
+      async (item: { connectionId: string; bucket: string; key: string }) => {
+        const confirm = await vscode.window.showWarningMessage(
+          `Delete key "${item.key}" from bucket "${item.bucket}"?`,
+          { modal: true },
+          "Delete",
+        );
+        if (confirm !== "Delete") return;
+        const { createServices } = await import("./services");
+        const nc = connectionManager.getConnection(item.connectionId);
+        if (!nc) return;
+        try {
+          await createServices(nc).kv.delete(item.bucket, item.key);
+          kvTree.refresh();
+        } catch (err) {
+          vscode.window.showErrorMessage(
+            `Failed to delete key: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      },
+    ),
+
+    vscode.commands.registerCommand("leafnode.kv.createBucket", async () => {
+      const connId = getActiveConnectionId();
+      if (!connId) {
+        vscode.window.showWarningMessage("Connect to a NATS server first.");
+        return;
+      }
+      const name = await vscode.window.showInputBox({
+        prompt: "Bucket name",
+        placeHolder: "my-bucket",
+      });
+      if (!name) return;
+      const { createServices } = await import("./services");
+      const nc = connectionManager.getConnection(connId);
+      if (!nc) return;
+      try {
+        await createServices(nc).kv.createBucket(name);
+        kvTree.refresh();
+        vscode.window.showInformationMessage(`Created KV bucket "${name}".`);
+      } catch (err) {
+        vscode.window.showErrorMessage(
+          `Failed to create bucket: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }),
+
+    vscode.commands.registerCommand("leafnode.kv.deleteBucket",
+      async (item: { connectionId: string; bucket: string }) => {
+        const confirm = await vscode.window.showWarningMessage(
+          `Delete bucket "${item.bucket}"? This cannot be undone.`,
+          { modal: true },
+          "Delete",
+        );
+        if (confirm !== "Delete") return;
+        const { createServices } = await import("./services");
+        const nc = connectionManager.getConnection(item.connectionId);
+        if (!nc) return;
+        try {
+          await createServices(nc).kv.deleteBucket(item.bucket);
+          kvTree.refresh();
+          vscode.window.showInformationMessage(`Deleted bucket "${item.bucket}".`);
+        } catch (err) {
+          vscode.window.showErrorMessage(
+            `Failed to delete bucket: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      },
+    ),
+
+    vscode.commands.registerCommand("leafnode.kv.purgeKey",
+      async (item: { connectionId: string; bucket: string; key: string }) => {
+        const confirm = await vscode.window.showWarningMessage(
+          `Purge key "${item.key}" and all its history from "${item.bucket}"?`,
+          { modal: true },
+          "Purge",
+        );
+        if (confirm !== "Purge") return;
+        const { createServices } = await import("./services");
+        const nc = connectionManager.getConnection(item.connectionId);
+        if (!nc) return;
+        try {
+          await createServices(nc).kv.purge(item.bucket, item.key);
+          kvTree.refresh();
+        } catch (err) {
+          vscode.window.showErrorMessage(
+            `Failed to purge key: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      },
+    ),
+
+    vscode.commands.registerCommand("leafnode.kv.createKey",
+      async (item?: { connectionId: string; bucket: string }) => {
+        const connId = item?.connectionId ?? getActiveConnectionId();
+        const bucketName = item?.bucket;
+        if (!connId) {
+          vscode.window.showWarningMessage("Connect to a NATS server first.");
+          return;
+        }
+
+        let targetBucket = bucketName;
+        if (!targetBucket) {
+          targetBucket = await vscode.window.showInputBox({
+            prompt: "Bucket name",
+            placeHolder: "my-bucket",
+          });
+          if (!targetBucket) return;
+        }
+
+        const key = await vscode.window.showInputBox({
+          prompt: "Key name",
+          placeHolder: "my-key",
+        });
+        if (!key) return;
+
+        const value = await vscode.window.showInputBox({
+          prompt: "Value",
+          placeHolder: "value",
+        });
+        if (value === undefined) return;
+
+        const { createServices } = await import("./services");
+        const nc = connectionManager.getConnection(connId);
+        if (!nc) return;
+        try {
+          await createServices(nc).kv.put(
+            targetBucket,
+            key,
+            new TextEncoder().encode(value),
+          );
+          kvTree.refresh();
+        } catch (err) {
+          vscode.window.showErrorMessage(
+            `Failed to create key: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      },
+    ),
+
+    vscode.commands.registerCommand("leafnode.kv.keyHistory",
+      (item: { connectionId: string; bucket: string; key: string }) => {
+        const panelId = `kv:${item.connectionId}:${item.bucket}:${item.key}`;
+        const panel = panelManager.createOrShow(
+          panelId,
+          `KV: ${item.bucket}/${item.key}`,
+          "kv-editor",
+          vscode.ViewColumn.One,
+        );
+        messageRouter.registerPanel(panel, panelId);
+        panel.webview.postMessage({
+          type: "init",
+          connectionId: item.connectionId,
+          bucket: item.bucket,
+          key: item.key,
+          showHistory: true,
+        });
+      },
+    ),
+
+    vscode.commands.registerCommand("leafnode.kv.loadMore",
+      (_item: { connectionId: string; bucket: string; offset: number }) => {
+        kvTree.refresh();
+      },
+    ),
+  );
+}
+
+export function deactivate(): void {}

@@ -1,0 +1,331 @@
+{
+  "name": "leafnode",
+  "displayName": "Leafnode",
+  "description": "NATS observability and management for VS Code",
+  "version": "0.0.1",
+  "publisher": "otterdevs",
+  "license": "MIT",
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/otterdevs/leafnode"
+  },
+  "bugs": {
+    "url": "https://github.com/otterdevs/leafnode/issues"
+  },
+  "homepage": "https://github.com/otterdevs/leafnode#readme",
+  "galleryBanner": {
+    "color": "#1a1a2e",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "nats",
+    "jetstream",
+    "messaging",
+    "kv",
+    "pub/sub",
+    "stream",
+    "observability"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "leafnode",
+          "title": "NATS",
+          "icon": "resources/nats.svg"
+        }
+      ]
+    },
+    "views": {
+      "leafnode": [
+        {
+          "id": "leafnode.connections",
+          "name": "Connections"
+        },
+        {
+          "id": "leafnode.streams",
+          "name": "Streams"
+        },
+        {
+          "id": "leafnode.kv",
+          "name": "KV Stores"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "leafnode.addConnection",
+        "title": "Add Connection",
+        "category": "Leafnode",
+        "icon": "$(add)"
+      },
+      {
+        "command": "leafnode.connect",
+        "title": "Connect",
+        "category": "Leafnode",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "leafnode.disconnect",
+        "title": "Disconnect",
+        "category": "Leafnode",
+        "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "leafnode.removeConnection",
+        "title": "Remove Connection",
+        "category": "Leafnode",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "leafnode.importNatsContext",
+        "title": "Import NATS CLI Contexts",
+        "category": "Leafnode",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "leafnode.streams.refresh",
+        "title": "Refresh Streams",
+        "category": "Leafnode",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "leafnode.streams.browseMessages",
+        "title": "Browse Messages",
+        "category": "Leafnode",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "leafnode.streams.purge",
+        "title": "Purge Stream",
+        "category": "Leafnode",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "leafnode.streams.delete",
+        "title": "Delete Stream",
+        "category": "Leafnode",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "leafnode.openPubSub",
+        "title": "Open Pub/Sub Panel",
+        "category": "Leafnode",
+        "icon": "$(radio-tower)"
+      },
+      {
+        "command": "leafnode.kv.refresh",
+        "title": "Refresh KV Stores",
+        "category": "Leafnode",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "leafnode.kv.viewEntry",
+        "title": "View Entry",
+        "category": "Leafnode"
+      },
+      {
+        "command": "leafnode.kv.deleteKey",
+        "title": "Delete Key",
+        "category": "Leafnode",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "leafnode.kv.createBucket",
+        "title": "Create Bucket",
+        "category": "Leafnode",
+        "icon": "$(add)"
+      },
+      {
+        "command": "leafnode.kv.deleteBucket",
+        "title": "Delete Bucket",
+        "category": "Leafnode",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "leafnode.kv.purgeKey",
+        "title": "Purge Key",
+        "category": "Leafnode",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "leafnode.kv.createKey",
+        "title": "Create Key",
+        "category": "Leafnode",
+        "icon": "$(add)"
+      },
+      {
+        "command": "leafnode.kv.keyHistory",
+        "title": "View Key History",
+        "category": "Leafnode",
+        "icon": "$(history)"
+      },
+      {
+        "command": "leafnode.kv.loadMore",
+        "title": "Load More Keys",
+        "category": "Leafnode"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "leafnode.addConnection",
+          "when": "view == leafnode.connections",
+          "group": "navigation"
+        },
+        {
+          "command": "leafnode.importNatsContext",
+          "when": "view == leafnode.connections"
+        },
+        {
+          "command": "leafnode.streams.refresh",
+          "when": "view == leafnode.streams",
+          "group": "navigation"
+        },
+        {
+          "command": "leafnode.openPubSub",
+          "when": "view == leafnode.streams",
+          "group": "navigation"
+        },
+        {
+          "command": "leafnode.kv.refresh",
+          "when": "view == leafnode.kv",
+          "group": "navigation"
+        },
+        {
+          "command": "leafnode.kv.createBucket",
+          "when": "view == leafnode.kv",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "leafnode.connect",
+          "when": "view == leafnode.connections && viewItem =~ /connection:(disconnected|error)/",
+          "group": "inline"
+        },
+        {
+          "command": "leafnode.disconnect",
+          "when": "view == leafnode.connections && viewItem == connection:connected",
+          "group": "inline"
+        },
+        {
+          "command": "leafnode.removeConnection",
+          "when": "view == leafnode.connections",
+          "group": "3_remove"
+        },
+        {
+          "command": "leafnode.streams.browseMessages",
+          "when": "view == leafnode.streams && viewItem == stream",
+          "group": "inline"
+        },
+        {
+          "command": "leafnode.streams.purge",
+          "when": "view == leafnode.streams && viewItem == stream",
+          "group": "2_manage"
+        },
+        {
+          "command": "leafnode.streams.delete",
+          "when": "view == leafnode.streams && viewItem == stream",
+          "group": "3_remove"
+        },
+        {
+          "command": "leafnode.kv.viewEntry",
+          "when": "view == leafnode.kv && viewItem == kvKey",
+          "group": "1_view"
+        },
+        {
+          "command": "leafnode.kv.keyHistory",
+          "when": "view == leafnode.kv && viewItem == kvKey",
+          "group": "1_view"
+        },
+        {
+          "command": "leafnode.kv.purgeKey",
+          "when": "view == leafnode.kv && viewItem == kvKey",
+          "group": "2_manage"
+        },
+        {
+          "command": "leafnode.kv.deleteKey",
+          "when": "view == leafnode.kv && viewItem == kvKey",
+          "group": "3_remove"
+        },
+        {
+          "command": "leafnode.kv.createKey",
+          "when": "view == leafnode.kv && viewItem == kvBucket",
+          "group": "1_create"
+        },
+        {
+          "command": "leafnode.kv.deleteBucket",
+          "when": "view == leafnode.kv && viewItem == kvBucket",
+          "group": "3_remove"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "leafnode.connections",
+        "contents": "No NATS connections configured.\n[Add Connection](command:leafnode.addConnection)\n[Import from NATS CLI](command:leafnode.importNatsContext)"
+      },
+      {
+        "view": "leafnode.streams",
+        "contents": "Connect to a NATS server to browse streams."
+      },
+      {
+        "view": "leafnode.kv",
+        "contents": "Connect to a NATS server to browse KV stores."
+      }
+    ],
+    "configuration": {
+      "title": "Leafnode",
+      "properties": {
+        "leafnode.autoRefreshInterval": {
+          "type": "number",
+          "default": 30,
+          "description": "Auto-refresh interval in seconds (0 to disable)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "npm run build:webview && npm run build:ext",
+    "build:ext": "node esbuild.config.mjs --production",
+    "build:webview": "cd webview-ui && npm run build",
+    "watch:ext": "node esbuild.config.mjs --watch",
+    "watch:webview": "cd webview-ui && npm run dev",
+    "watch": "concurrently \"npm:watch:ext\" \"npm:watch:webview\"",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^3.2.0",
+    "concurrently": "^9.0.0",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "@nats-io/jetstream": "^3.0.0",
+    "@nats-io/kv": "^3.0.0",
+    "@nats-io/transport-node": "^3.0.0"
+  }
+}
