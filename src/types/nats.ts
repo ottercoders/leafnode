@@ -55,6 +55,7 @@ export interface NatsMessageView {
 
 export interface MessageQueryOpts {
   startSeq?: number;
+  startTime?: string;
   endSeq?: number;
   subject?: string;
   limit: number;
@@ -76,4 +77,19 @@ export interface KvEntryView {
   revision: number;
   created: string;
   operation: string;
+}
+
+export interface ObjStoreInfoView {
+  name: string;
+  size: number;
+  objects: number;
+  sealed: boolean;
+}
+
+export interface ObjectInfoView {
+  name: string;
+  size: number;
+  chunks: number;
+  lastModified: string;
+  digest: string;
 }

@@ -8,42 +8,61 @@ function generateId(): string {
 
 export async function runConnectionWizard(
   manager: ConnectionManager,
+  existingConfig?: ConnectionConfig,
 ): Promise<ConnectionConfig | undefined> {
+  const isEdit = !!existingConfig;
+  const titlePrefix = isEdit ? "Edit" : "Add";
+
   // Step 1: Name
   const name = await vscode.window.showInputBox({
-    title: "Add NATS Connection (1/4)",
+    title: `${titlePrefix} NATS Connection (1/4)`,
     prompt: "Connection name",
     placeHolder: "e.g. local-dev",
+    value: existingConfig?.name ?? "",
     validateInput: (v) => (v.trim() ? undefined : "Name is required"),
   });
   if (!name) return undefined;
 
   // Step 2: Server URL(s)
   const serversInput = await vscode.window.showInputBox({
-    title: "Add NATS Connection (2/4)",
+    title: `${titlePrefix} NATS Connection (2/4)`,
     prompt: "Server URL(s), comma-separated",
     placeHolder: "nats://localhost:4222",
-    value: "nats://localhost:4222",
-    validateInput: (v) => (v.trim() ? undefined : "At least one server URL is required"),
+    value: existingConfig?.servers.join(", ") ?? "nats://localhost:4222",
+    validateInput: (v) =>
+      v.trim() ? undefined : "At least one server URL is required",
   });
   if (!serversInput) return undefined;
-  const servers = serversInput.split(",").map((s) => s.trim()).filter(Boolean);
+  const servers = serversInput
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   // Step 3: Auth type
-  const authType = await vscode.window.showQuickPick(
-    [
-      { label: "Anonymous", description: "No authentication", value: "anonymous" as const },
-      { label: "Token", description: "Bearer token", value: "token" as const },
-      { label: "Username/Password", description: "Basic auth", value: "userpass" as const },
-      { label: "NKey", description: "NKey seed file", value: "nkey" as const },
-      { label: "Credentials File", description: ".creds file", value: "credentials" as const },
-      { label: "TLS Client Certificate", description: "Mutual TLS", value: "tls" as const },
-    ],
-    { title: "Add NATS Connection (3/4)", placeHolder: "Authentication method" },
-  );
+  const authOptions = [
+    { label: "Anonymous", description: "No authentication", value: "anonymous" as const },
+    { label: "Token", description: "Bearer token", value: "token" as const },
+    { label: "Username/Password", description: "Basic auth", value: "userpass" as const },
+    { label: "NKey", description: "NKey seed file", value: "nkey" as const },
+    { label: "Credentials File", description: ".creds file", value: "credentials" as const },
+    { label: "TLS Client Certificate", description: "Mutual TLS", value: "tls" as const },
+  ];
+
+  // Pre-select current auth type when editing
+  const defaultAuth = existingConfig?.auth.type ?? "anonymous";
+  const sortedOptions = authOptions.sort((a, b) => {
+    if (a.value === defaultAuth) return -1;
+    if (b.value === defaultAuth) return 1;
+    return 0;
+  });
+
+  const authType = await vscode.window.showQuickPick(sortedOptions, {
+    title: `${titlePrefix} NATS Connection (3/4)`,
+    placeHolder: `Authentication method${isEdit ? ` (current: ${defaultAuth})` : ""}`,
+  });
   if (!authType) return undefined;
 
-  const id = generateId();
+  const id = existingConfig?.id ?? generateId();
   let auth: AuthConfig;
 
   switch (authType.value) {
@@ -53,7 +72,7 @@ export async function runConnectionWizard(
 
     case "token": {
       const token = await vscode.window.showInputBox({
-        title: "Add NATS Connection (3/4)",
+        title: `${titlePrefix} NATS Connection (3/4)`,
         prompt: "Auth token",
         password: true,
       });
@@ -65,13 +84,18 @@ export async function runConnectionWizard(
     }
 
     case "userpass": {
+      const existingUser =
+        existingConfig?.auth.type === "userpass"
+          ? existingConfig.auth.user
+          : "";
       const user = await vscode.window.showInputBox({
-        title: "Add NATS Connection (3/4)",
+        title: `${titlePrefix} NATS Connection (3/4)`,
         prompt: "Username",
+        value: existingUser,
       });
       if (user === undefined) return undefined;
       const pass = await vscode.window.showInputBox({
-        title: "Add NATS Connection (3/4)",
+        title: `${titlePrefix} NATS Connection (3/4)`,
         prompt: "Password",
         password: true,
       });
@@ -91,7 +115,6 @@ export async function runConnectionWizard(
       const content = Buffer.from(
         await vscode.workspace.fs.readFile(fileUri[0]),
       ).toString("utf-8");
-      // Extract seed line
       const seed =
         content
           .split("\n")
@@ -121,17 +144,17 @@ export async function runConnectionWizard(
     case "tls": {
       const certUri = await vscode.window.showOpenDialog({
         title: "Select TLS client certificate",
-        filters: { "Certificates": ["pem", "crt", "cert"] },
+        filters: { Certificates: ["pem", "crt", "cert"] },
       });
       if (!certUri?.[0]) return undefined;
       const keyUri = await vscode.window.showOpenDialog({
         title: "Select TLS client key",
-        filters: { "Keys": ["pem", "key"] },
+        filters: { Keys: ["pem", "key"] },
       });
       if (!keyUri?.[0]) return undefined;
       const caUri = await vscode.window.showOpenDialog({
         title: "Select CA certificate (optional — press Escape to skip)",
-        filters: { "Certificates": ["pem", "crt", "cert"] },
+        filters: { Certificates: ["pem", "crt", "cert"] },
       });
       auth = {
         type: "tls",
@@ -145,9 +168,10 @@ export async function runConnectionWizard(
 
   // Step 4: Monitoring URL (optional)
   const monitoringUrl = await vscode.window.showInputBox({
-    title: "Add NATS Connection (4/4)",
+    title: `${titlePrefix} NATS Connection (4/4)`,
     prompt: "Monitoring URL (optional)",
     placeHolder: "http://localhost:8222",
+    value: existingConfig?.monitoringUrl ?? "",
   });
 
   const config: ConnectionConfig = {
@@ -158,6 +182,10 @@ export async function runConnectionWizard(
     monitoringUrl: monitoringUrl?.trim() || undefined,
   };
 
-  await manager.addConnection(config);
+  if (isEdit) {
+    await manager.updateConnection(id, config);
+  } else {
+    await manager.addConnection(config);
+  }
   return config;
 }

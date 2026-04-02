@@ -4,14 +4,27 @@ import type { Services } from "../../services";
 import { createServices } from "../../services";
 import type { ExtensionMessage } from "../../types/messages";
 import type { ActiveSubscription } from "../../services/nats";
+import type { BookmarksService } from "../../services/bookmarks";
+import { MonitoringService } from "../../services/monitoring";
+import * as fs from "fs";
+
+interface Cancelable {
+  cancel(): void;
+}
 
 export class WebviewMessageRouter implements vscode.Disposable {
   private servicesCache = new Map<string, Services>();
   private subscriptions = new Map<string, ActiveSubscription>();
+  private watches = new Map<string, Cancelable>();
   private panelSubscriptions = new Map<string, Set<string>>();
   private panelDisposables = new Map<string, vscode.Disposable[]>();
+  private bookmarksService?: BookmarksService;
 
   constructor(private readonly connectionManager: ConnectionManager) {}
+
+  setBookmarksService(svc: BookmarksService): void {
+    this.bookmarksService = svc;
+  }
 
   private getServices(connectionId: string): Services | undefined {
     let services = this.servicesCache.get(connectionId);
@@ -214,7 +227,219 @@ export class WebviewMessageRouter implements vscode.Disposable {
         panel.webview.postMessage({ type: "kv:history:data", entries });
         break;
       }
+
+      case "kv:watch": {
+        const svc = this.requireServices(message.connectionId);
+        let cancelled = false;
+        const watch = {
+          cancel: () => { cancelled = true; },
+        };
+        this.watches.set(message.id, watch);
+
+        let panelSubs = this.panelSubscriptions.get(panelId);
+        if (!panelSubs) {
+          panelSubs = new Set();
+          this.panelSubscriptions.set(panelId, panelSubs);
+        }
+        panelSubs.add(message.id);
+
+        (async () => {
+          for await (const entry of await svc.kv.watchEntries(
+            message.bucket,
+            message.key,
+          )) {
+            if (cancelled) break;
+            panel.webview.postMessage({
+              type: "kv:watch:update",
+              id: message.id,
+              entry,
+            });
+          }
+        })().catch(() => {
+          this.watches.delete(message.id);
+        });
+        break;
+      }
+
+      case "kv:unwatch": {
+        const watch = this.watches.get(message.id);
+        if (watch) {
+          watch.cancel();
+          this.watches.delete(message.id);
+          for (const panelSubs of this.panelSubscriptions.values()) {
+            panelSubs.delete(message.id);
+          }
+        }
+        break;
+      }
+
+      case "bookmarks:list": {
+        if (this.bookmarksService) {
+          panel.webview.postMessage({
+            type: "bookmarks:data",
+            subscriptions: this.bookmarksService.getSavedSubscriptions(),
+            templates: this.bookmarksService.getSavedTemplates(),
+            bookmarks: this.bookmarksService.getMessageBookmarks(),
+          });
+        }
+        break;
+      }
+
+      case "bookmarks:saveSubscription": {
+        if (this.bookmarksService) {
+          await this.bookmarksService.saveSubscription({
+            name: message.name,
+            subject: message.subject,
+          });
+          panel.webview.postMessage({
+            type: "bookmarks:data",
+            subscriptions: this.bookmarksService.getSavedSubscriptions(),
+            templates: this.bookmarksService.getSavedTemplates(),
+            bookmarks: this.bookmarksService.getMessageBookmarks(),
+          });
+        }
+        break;
+      }
+
+      case "bookmarks:deleteSubscription": {
+        if (this.bookmarksService) {
+          await this.bookmarksService.deleteSubscription(message.name);
+          panel.webview.postMessage({
+            type: "bookmarks:data",
+            subscriptions: this.bookmarksService.getSavedSubscriptions(),
+            templates: this.bookmarksService.getSavedTemplates(),
+            bookmarks: this.bookmarksService.getMessageBookmarks(),
+          });
+        }
+        break;
+      }
+
+      case "bookmarks:saveTemplate": {
+        if (this.bookmarksService) {
+          await this.bookmarksService.saveTemplate(message.template);
+          panel.webview.postMessage({
+            type: "bookmarks:data",
+            subscriptions: this.bookmarksService.getSavedSubscriptions(),
+            templates: this.bookmarksService.getSavedTemplates(),
+            bookmarks: this.bookmarksService.getMessageBookmarks(),
+          });
+        }
+        break;
+      }
+
+      case "bookmarks:deleteTemplate": {
+        if (this.bookmarksService) {
+          await this.bookmarksService.deleteTemplate(message.name);
+          panel.webview.postMessage({
+            type: "bookmarks:data",
+            subscriptions: this.bookmarksService.getSavedSubscriptions(),
+            templates: this.bookmarksService.getSavedTemplates(),
+            bookmarks: this.bookmarksService.getMessageBookmarks(),
+          });
+        }
+        break;
+      }
+
+      case "bookmarks:saveMessage": {
+        if (this.bookmarksService) {
+          await this.bookmarksService.saveMessageBookmark(message.bookmark);
+          panel.webview.postMessage({
+            type: "bookmarks:data",
+            subscriptions: this.bookmarksService.getSavedSubscriptions(),
+            templates: this.bookmarksService.getSavedTemplates(),
+            bookmarks: this.bookmarksService.getMessageBookmarks(),
+          });
+        }
+        break;
+      }
+
+      case "bookmarks:deleteMessage": {
+        if (this.bookmarksService) {
+          await this.bookmarksService.deleteMessageBookmark(message.name);
+          panel.webview.postMessage({
+            type: "bookmarks:data",
+            subscriptions: this.bookmarksService.getSavedSubscriptions(),
+            templates: this.bookmarksService.getSavedTemplates(),
+            bookmarks: this.bookmarksService.getMessageBookmarks(),
+          });
+        }
+        break;
+      }
+
+      case "obj:stores": {
+        const svc = this.requireServices(message.connectionId);
+        const stores = await svc.obj.listStores();
+        panel.webview.postMessage({ type: "obj:stores:data", stores });
+        break;
+      }
+
+      case "obj:objects": {
+        const svc = this.requireServices(message.connectionId);
+        const objects = await svc.obj.listObjects(message.store);
+        panel.webview.postMessage({ type: "obj:objects:data", objects });
+        break;
+      }
+
+      case "obj:info": {
+        const svc = this.requireServices(message.connectionId);
+        const info = await svc.obj.getObjectInfo(message.store, message.name);
+        if (info) {
+          panel.webview.postMessage({ type: "obj:info:data", info });
+        }
+        break;
+      }
+
+      case "obj:delete": {
+        const svc = this.requireServices(message.connectionId);
+        await svc.obj.deleteObject(message.store, message.name);
+        break;
+      }
+
+      case "monitor:varz": {
+        const monSvc = this.getMonitoringService(message.connectionId);
+        const varz = await monSvc.getVarz();
+        panel.webview.postMessage({ type: "monitor:varz:data", data: varz });
+        break;
+      }
+
+      case "monitor:connz": {
+        const monSvc = this.getMonitoringService(message.connectionId);
+        const connz = await monSvc.getConnz({ limit: 256 });
+        panel.webview.postMessage({ type: "monitor:connz:data", data: connz });
+        break;
+      }
+
+      case "monitor:jsz": {
+        const monSvc = this.getMonitoringService(message.connectionId);
+        const jsz = await monSvc.getJsz();
+        panel.webview.postMessage({ type: "monitor:jsz:data", data: jsz });
+        break;
+      }
+
+      case "export:messages": {
+        const uri = await vscode.window.showSaveDialog({
+          defaultUri: vscode.Uri.file("messages.json"),
+          filters: { "JSON": ["json"], "NDJSON": ["ndjson"] },
+        });
+        if (uri) {
+          fs.writeFileSync(uri.fsPath, message.data, "utf-8");
+          vscode.window.showInformationMessage(`Exported messages to ${uri.fsPath}`);
+        }
+        break;
+      }
     }
+  }
+
+  private getMonitoringService(connectionId: string): MonitoringService {
+    const config = this.connectionManager
+      .getSavedConnections()
+      .find((c) => c.id === connectionId);
+    if (!config?.monitoringUrl) {
+      throw new Error(
+        "No monitoring URL configured for this connection. Edit the connection and set a monitoring URL (e.g. http://localhost:8222).",
+      );
+    }
+    return new MonitoringService(config.monitoringUrl);
   }
 
   private requireServices(connectionId: string): Services {
@@ -234,6 +459,11 @@ export class WebviewMessageRouter implements vscode.Disposable {
           sub.unsubscribe();
           this.subscriptions.delete(subId);
         }
+        const watch = this.watches.get(subId);
+        if (watch) {
+          watch.cancel();
+          this.watches.delete(subId);
+        }
       }
       this.panelSubscriptions.delete(panelId);
     }
@@ -247,7 +477,11 @@ export class WebviewMessageRouter implements vscode.Disposable {
     for (const sub of this.subscriptions.values()) {
       sub.unsubscribe();
     }
+    for (const watch of this.watches.values()) {
+      watch.cancel();
+    }
     this.subscriptions.clear();
+    this.watches.clear();
     this.panelSubscriptions.clear();
     this.servicesCache.clear();
     for (const disposables of this.panelDisposables.values()) {

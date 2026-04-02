@@ -61,6 +61,14 @@
         {
           "id": "leafnode.kv",
           "name": "KV Stores"
+        },
+        {
+          "id": "leafnode.obj",
+          "name": "Object Stores"
+        },
+        {
+          "id": "leafnode.subjects",
+          "name": "Subjects"
         }
       ]
     },
@@ -70,6 +78,12 @@
         "title": "Add Connection",
         "category": "Leafnode",
         "icon": "$(add)"
+      },
+      {
+        "command": "leafnode.editConnection",
+        "title": "Edit Connection",
+        "category": "Leafnode",
+        "icon": "$(edit)"
       },
       {
         "command": "leafnode.connect",
@@ -118,6 +132,54 @@
         "title": "Delete Stream",
         "category": "Leafnode",
         "icon": "$(trash)"
+      },
+      {
+        "command": "leafnode.streams.create",
+        "title": "Create Stream",
+        "category": "Leafnode",
+        "icon": "$(add)"
+      },
+      {
+        "command": "leafnode.streams.edit",
+        "title": "Edit Stream",
+        "category": "Leafnode",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "leafnode.streams.duplicate",
+        "title": "Duplicate Stream",
+        "category": "Leafnode",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "leafnode.streams.seal",
+        "title": "Seal Stream",
+        "category": "Leafnode",
+        "icon": "$(lock)"
+      },
+      {
+        "command": "leafnode.consumers.create",
+        "title": "Create Consumer",
+        "category": "Leafnode",
+        "icon": "$(add)"
+      },
+      {
+        "command": "leafnode.consumers.delete",
+        "title": "Delete Consumer",
+        "category": "Leafnode",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "leafnode.consumers.pause",
+        "title": "Pause Consumer",
+        "category": "Leafnode",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "leafnode.consumers.resume",
+        "title": "Resume Consumer",
+        "category": "Leafnode",
+        "icon": "$(debug-continue)"
       },
       {
         "command": "leafnode.openPubSub",
@@ -176,6 +238,47 @@
         "command": "leafnode.kv.loadMore",
         "title": "Load More Keys",
         "category": "Leafnode"
+      },
+      {
+        "command": "leafnode.obj.refresh",
+        "title": "Refresh Object Stores",
+        "category": "Leafnode",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "leafnode.obj.viewObject",
+        "title": "View Object",
+        "category": "Leafnode"
+      },
+      {
+        "command": "leafnode.obj.deleteObject",
+        "title": "Delete Object",
+        "category": "Leafnode",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "leafnode.subjects.refresh",
+        "title": "Refresh Subjects",
+        "category": "Leafnode",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "leafnode.openServerMonitor",
+        "title": "Open Server Monitor",
+        "category": "Leafnode",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "leafnode.runNatsCommand",
+        "title": "Run NATS CLI Command",
+        "category": "Leafnode",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "leafnode.workspace.init",
+        "title": "Initialize Workspace Config",
+        "category": "Leafnode",
+        "icon": "$(new-file)"
       }
     ],
     "menus": {
@@ -195,6 +298,11 @@
           "group": "navigation"
         },
         {
+          "command": "leafnode.streams.create",
+          "when": "view == leafnode.streams",
+          "group": "navigation"
+        },
+        {
           "command": "leafnode.openPubSub",
           "when": "view == leafnode.streams",
           "group": "navigation"
@@ -207,6 +315,16 @@
         {
           "command": "leafnode.kv.createBucket",
           "when": "view == leafnode.kv",
+          "group": "navigation"
+        },
+        {
+          "command": "leafnode.obj.refresh",
+          "when": "view == leafnode.obj",
+          "group": "navigation"
+        },
+        {
+          "command": "leafnode.subjects.refresh",
+          "when": "view == leafnode.subjects",
           "group": "navigation"
         }
       ],
@@ -222,6 +340,11 @@
           "group": "inline"
         },
         {
+          "command": "leafnode.editConnection",
+          "when": "view == leafnode.connections",
+          "group": "2_edit"
+        },
+        {
           "command": "leafnode.removeConnection",
           "when": "view == leafnode.connections",
           "group": "3_remove"
@@ -232,7 +355,27 @@
           "group": "inline"
         },
         {
+          "command": "leafnode.consumers.create",
+          "when": "view == leafnode.streams && viewItem == stream",
+          "group": "1_create"
+        },
+        {
+          "command": "leafnode.streams.edit",
+          "when": "view == leafnode.streams && viewItem == stream",
+          "group": "2_manage"
+        },
+        {
+          "command": "leafnode.streams.duplicate",
+          "when": "view == leafnode.streams && viewItem == stream",
+          "group": "2_manage"
+        },
+        {
           "command": "leafnode.streams.purge",
+          "when": "view == leafnode.streams && viewItem == stream",
+          "group": "2_manage"
+        },
+        {
+          "command": "leafnode.streams.seal",
           "when": "view == leafnode.streams && viewItem == stream",
           "group": "2_manage"
         },
@@ -240,6 +383,21 @@
           "command": "leafnode.streams.delete",
           "when": "view == leafnode.streams && viewItem == stream",
           "group": "3_remove"
+        },
+        {
+          "command": "leafnode.consumers.delete",
+          "when": "view == leafnode.streams && viewItem == consumer",
+          "group": "2_manage"
+        },
+        {
+          "command": "leafnode.consumers.pause",
+          "when": "view == leafnode.streams && viewItem == consumer",
+          "group": "2_manage"
+        },
+        {
+          "command": "leafnode.consumers.resume",
+          "when": "view == leafnode.streams && viewItem == consumer",
+          "group": "2_manage"
         },
         {
           "command": "leafnode.kv.viewEntry",
@@ -270,6 +428,16 @@
           "command": "leafnode.kv.deleteBucket",
           "when": "view == leafnode.kv && viewItem == kvBucket",
           "group": "3_remove"
+        },
+        {
+          "command": "leafnode.obj.viewObject",
+          "when": "view == leafnode.obj && viewItem == objObject",
+          "group": "1_view"
+        },
+        {
+          "command": "leafnode.obj.deleteObject",
+          "when": "view == leafnode.obj && viewItem == objObject",
+          "group": "3_remove"
         }
       ]
     },
@@ -285,6 +453,20 @@
       {
         "view": "leafnode.kv",
         "contents": "Connect to a NATS server to browse KV stores."
+      },
+      {
+        "view": "leafnode.obj",
+        "contents": "Connect to a NATS server to browse object stores."
+      },
+      {
+        "view": "leafnode.subjects",
+        "contents": "Connect to a NATS server to explore subjects."
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": ".leafnode.json",
+        "url": "./schemas/leafnode-config.schema.json"
       }
     ],
     "configuration": {
@@ -310,6 +492,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "package": "vsce package --no-dependencies"
   },
   "devDependencies": {
@@ -326,6 +509,7 @@
   "dependencies": {
     "@nats-io/jetstream": "^3.0.0",
     "@nats-io/kv": "^3.0.0",
+    "@nats-io/obj": "^3.3.1",
     "@nats-io/transport-node": "^3.0.0"
   }
 }

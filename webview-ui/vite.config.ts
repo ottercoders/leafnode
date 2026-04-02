@@ -12,6 +12,8 @@ export default defineConfig({
         "message-browser": resolve(__dirname, "message-browser.html"),
         "pub-sub": resolve(__dirname, "pub-sub.html"),
         "kv-editor": resolve(__dirname, "kv-editor.html"),
+        "obj-viewer": resolve(__dirname, "obj-viewer.html"),
+        "server-monitor": resolve(__dirname, "server-monitor.html"),
       },
       output: {
         entryFileNames: "[name]/[name].js",

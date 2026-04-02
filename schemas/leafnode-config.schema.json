@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Leafnode Workspace Configuration",
+  "type": "object",
+  "properties": {
+    "connections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "servers"],
+        "properties": {
+          "name": { "type": "string" },
+          "servers": { "type": "array", "items": { "type": "string" } },
+          "monitoringUrl": { "type": "string" }
+        }
+      }
+    }
+  }
+}

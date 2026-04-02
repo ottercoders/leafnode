@@ -75,6 +75,17 @@ export class KvService {
     return entries;
   }
 
+  async *watchEntries(
+    bucketName: string,
+    key?: string,
+  ): AsyncIterable<KvEntryView> {
+    const kv = await this.kvm.open(bucketName);
+    const iter = await kv.watch(key ? { key } : undefined);
+    for await (const entry of iter) {
+      yield kvEntryToView(entry);
+    }
+  }
+
   async createBucket(
     name: string,
     opts?: { history?: number; ttl?: number; replicas?: number; maxBytes?: number },
