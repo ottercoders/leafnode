@@ -5,9 +5,10 @@
     items: unknown[];
     itemHeight: number;
     children: Snippet<[{ item: unknown; index: number }]>;
+    totalLabel?: string;
   }
 
-  let { items, itemHeight, children }: Props = $props();
+  let { items, itemHeight, children, totalLabel }: Props = $props();
 
   let container: HTMLDivElement | undefined = $state();
   let scrollTop = $state(0);
@@ -48,6 +49,9 @@
     </div>
   </div>
 </div>
+{#if totalLabel && items.length > 0}
+  <div class="vl-count">{items.length} {totalLabel}</div>
+{/if}
 
 <style>
   .virtual-list {
@@ -67,4 +71,5 @@
   .virtual-list-item {
     overflow: hidden;
   }
+  .vl-count { padding: 4px 8px; font-size: 0.8em; color: var(--vscode-descriptionForeground); text-align: right; flex-shrink: 0; }
 </style>
