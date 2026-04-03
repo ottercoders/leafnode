@@ -18,7 +18,7 @@ export const config: Options.Testrunner = {
         userSettings: {
           "leafnode.autoRefreshInterval": 0,
         },
-        vscodeArgs: ["--disable-gpu", "--disable-extensions"],
+        vscodeArgs: ["--disable-gpu"],
       },
     } as WebdriverIO.Capabilities,
   ],
