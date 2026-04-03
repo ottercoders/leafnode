@@ -18,6 +18,34 @@ Install Leafnode from the [VS Code Marketplace](https://marketplace.visualstudio
 
 Once connected, you'll see your streams, KV stores, and object stores populate in the sidebar tree views.
 
+## Architecture
+
+Leafnode runs as a **workspace extension** — it executes on the same machine as your workspace. All NATS communication uses TCP from the extension host, which means it works in remote environments (SSH, WSL, Codespaces).
+
+```mermaid
+graph TB
+    subgraph "VS Code UI"
+        TV[Tree Views<br/>Connections, Streams, KV, Objects, Subjects]
+        WV[Webview Panels<br/>Message Browser, Pub/Sub, KV Editor,<br/>Object Viewer, Server Monitor]
+    end
+    subgraph "Extension Host (Node.js)"
+        CM[Connection Manager]
+        SVC[Services<br/>JetStream, KV, Obj, Monitoring]
+        MR[Message Router]
+    end
+    subgraph "External"
+        NATS[NATS Server :4222]
+        MON[Monitoring API :8222]
+    end
+
+    TV <-->|VS Code API| CM
+    WV <-->|postMessage| MR
+    MR --> SVC
+    CM --> SVC
+    SVC -->|TCP| NATS
+    SVC -->|HTTP| MON
+```
+
 ## Running NATS Locally
 
 The quickest way to get a NATS server running with JetStream:

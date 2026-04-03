@@ -29,3 +29,34 @@ Multiple simultaneous subscriptions are supported, each color-coded.
 
 - Send a request and view the response with round-trip timing
 - Configurable timeout (default 5 seconds)
+
+## Message Flow
+
+```mermaid
+sequenceDiagram
+    participant W as Webview (Svelte)
+    participant R as Message Router
+    participant S as NatsService
+    participant N as NATS Server
+
+    Note over W,N: Subscribe
+    W->>R: { type: "subscribe", subject: "orders.>" }
+    R->>S: subscribe("orders.>")
+    S->>N: SUB orders.>
+    N-->>S: MSG orders.created
+    S-->>R: NatsMessageView
+    R-->>W: { type: "subscription:message" }
+
+    Note over W,N: Publish
+    W->>R: { type: "publish", subject: "orders.created" }
+    R->>S: publish("orders.created", payload)
+    S->>N: PUB orders.created
+
+    Note over W,N: Request/Reply
+    W->>R: { type: "request", subject: "service.endpoint" }
+    R->>S: request("service.endpoint", payload)
+    S->>N: REQ service.endpoint
+    N-->>S: REPLY
+    S-->>R: NatsMessageView
+    R-->>W: { type: "request:response", durationMs }
+```

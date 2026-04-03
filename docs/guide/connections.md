@@ -23,6 +23,22 @@ Leafnode supports multiple simultaneous NATS server connections with secure cred
 
 All secrets are stored in VS Code's SecretStorage — never in plaintext settings.
 
+## Connection Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Disconnected: Add Connection
+    Disconnected --> Connecting: Connect
+    Connecting --> Connected: Success
+    Connecting --> Error: Failed
+    Connected --> Reconnecting: Connection Lost
+    Reconnecting --> Connected: Reconnected
+    Reconnecting --> Error: Max Retries
+    Connected --> Disconnected: Disconnect
+    Error --> Connecting: Retry
+    Error --> Disconnected: Dismiss
+```
+
 ## Editing Connections
 
 Right-click a connection in the tree and select **Edit Connection** to modify its settings.
