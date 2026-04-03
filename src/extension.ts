@@ -19,6 +19,7 @@ import {
   readCredsFile,
   readNkeyFile,
 } from "./connections/context-import";
+import { createServices } from "./services";
 import { BookmarksService } from "./services/bookmarks";
 
 function showError(prefix: string, err: unknown): void {
@@ -34,6 +35,8 @@ import {
 
 export interface LeafnodeAPI {
   panelManager: WebviewPanelManager;
+  connectionManager: ConnectionManager;
+  getServices: (connectionId: string) => import("./services").Services | undefined;
 }
 
 let connectionManager: ConnectionManager;
@@ -848,7 +851,14 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
     }
   }
 
-  return { panelManager };
+  return {
+    panelManager,
+    connectionManager,
+    getServices: (id: string) => {
+      const nc = connectionManager.getConnection(id);
+      return nc ? createServices(nc) : undefined;
+    },
+  };
 }
 
 export function deactivate(): void {}
