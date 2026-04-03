@@ -32,9 +32,13 @@ import {
   workspaceConnectionsToConfigs,
 } from "./config/workspace";
 
+export interface LeafnodeAPI {
+  panelManager: WebviewPanelManager;
+}
+
 let connectionManager: ConnectionManager;
 
-export function activate(context: vscode.ExtensionContext): void {
+export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
   connectionManager = new ConnectionManager(context.globalState, context.secrets);
   context.subscriptions.push(connectionManager);
 
@@ -843,6 +847,8 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
   }
+
+  return { panelManager };
 }
 
 export function deactivate(): void {}
