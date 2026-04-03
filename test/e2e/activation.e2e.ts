@@ -1,5 +1,7 @@
 import { openLeafnodeSidebar } from "./setup.e2e";
 
+const SCREENSHOTS = "./test/screenshots";
+
 describe("Extension Activation", () => {
   it("should show NATS icon in activity bar", async () => {
     const workbench = await browser.getWorkbench();
@@ -10,6 +12,7 @@ describe("Extension Activation", () => {
 
   it("should open Leafnode sidebar with expected sections", async () => {
     await openLeafnodeSidebar();
+    await browser.saveScreenshot(`${SCREENSHOTS}/sidebar-overview.png`);
 
     const workbench = await browser.getWorkbench();
     const sidebar = workbench.getSideBar();

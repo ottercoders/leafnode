@@ -1,5 +1,7 @@
 import { executeCommand, openWebview } from "./setup.e2e";
 
+const SCREENSHOTS = "./test/screenshots";
+
 describe("Server Monitor Panel", () => {
   it("should open server monitor via command", async () => {
     try {
@@ -36,6 +38,7 @@ describe("Server Monitor Panel", () => {
           expect(labels).toContain("Connections");
           expect(labels).toContain("JetStream");
           expect(labels).toContain("Accounts");
+          await browser.saveScreenshot(`${SCREENSHOTS}/monitor-server-tab.png`);
         }
 
         await wv.close();
@@ -67,6 +70,7 @@ describe("Server Monitor Panel", () => {
         if (await acctTab.isExisting()) {
           await acctTab.click();
           await browser.pause(300);
+          await browser.saveScreenshot(`${SCREENSHOTS}/monitor-accounts-tab.png`);
         }
 
         await wv.close();

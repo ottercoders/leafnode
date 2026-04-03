@@ -61,6 +61,15 @@ jobs:
         env:
           NATS_URL: nats://localhost:4222
 
+      - name: Upload test screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-screenshots
+          path: test/screenshots/
+          retention-days: 30
+          if-no-files-found: ignore
+
       - name: Package VSIX
         run: npx vsce package --no-dependencies -o leafnode.vsix
 
