@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-and-test:
@@ -63,3 +63,28 @@ jobs:
           name: leafnode-vsix
           path: leafnode.vsix
           retention-days: 7
+
+  release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: leafnode-vsix
+
+      - name: Create release
+        run: |
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          TAG="build-${SHA_SHORT}"
+          gh release create "$TAG" leafnode.vsix \
+            --title "Build ${SHA_SHORT}" \
+            --notes "Automated build from commit ${GITHUB_SHA}" \
+            --target "$GITHUB_SHA" \
+            --prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
