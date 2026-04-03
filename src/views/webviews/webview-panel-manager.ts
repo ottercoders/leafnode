@@ -62,31 +62,40 @@ export class WebviewPanelManager implements vscode.Disposable {
 
     const nonce = crypto.randomBytes(16).toString("hex");
 
-    // Rewrite asset paths to webview URIs
     const webviewBase = vscode.Uri.joinPath(
       this.extensionUri,
       "dist",
       "webview",
     );
 
+    // Rewrite all src/href paths to webview URIs
     html = html.replace(
       /(src|href)="\.?\/?([^"]+)"/g,
       (_match, attr, filePath) => {
         const uri = webview.asWebviewUri(
           vscode.Uri.joinPath(webviewBase, filePath),
         );
-        if (attr === "src" && filePath.endsWith(".js")) {
-          return `${attr}="${uri}" nonce="${nonce}"`;
-        }
         return `${attr}="${uri}"`;
       },
     );
 
-    // Inject CSP
+    // Remove modulepreload links — they're preload hints that don't work
+    // with the vscode-webview:// scheme and cause CSP issues
+    html = html.replace(/<link rel="modulepreload"[^>]*>/g, "");
+
+    // Remove crossorigin — not needed for webview-local resources
+    // and causes issues in the sandboxed iframe
+    html = html.replace(/\s+crossorigin/g, "");
+
+    // Add nonce to all script tags (including type="module")
+    html = html.replace(/<script\b/g, `<script nonce="${nonce}"`);
+
+    // CSP: nonce for inline/entry scripts, cspSource for dynamically
+    // imported module chunks loaded by the entry script at runtime
     const csp = [
       `default-src 'none'`,
       `style-src ${webview.cspSource} 'unsafe-inline'`,
-      `script-src 'nonce-${nonce}'`,
+      `script-src 'nonce-${nonce}' ${webview.cspSource}`,
       `img-src ${webview.cspSource} data:`,
       `font-src ${webview.cspSource}`,
     ].join("; ");
