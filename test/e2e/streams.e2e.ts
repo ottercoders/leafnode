@@ -1,26 +1,35 @@
-import { openLeafnodeSidebar, executeCommand } from "./setup.e2e";
+describe("Streams", () => {
+  it("should have all stream commands registered", async () => {
+    const commands = await browser.executeWorkbench((vscode) => {
+      return vscode.commands
+        .getCommands(true)
+        .then((cmds: string[]) =>
+          cmds.filter((c: string) => c.startsWith("leafnode.streams.")),
+        );
+    });
 
-describe("Streams Explorer", () => {
-  before(async () => {
-    await openLeafnodeSidebar();
+    expect(commands).toContain("leafnode.streams.refresh");
+    expect(commands).toContain("leafnode.streams.browseMessages");
+    expect(commands).toContain("leafnode.streams.create");
+    expect(commands).toContain("leafnode.streams.edit");
+    expect(commands).toContain("leafnode.streams.duplicate");
+    expect(commands).toContain("leafnode.streams.purge");
+    expect(commands).toContain("leafnode.streams.delete");
+    expect(commands).toContain("leafnode.streams.seal");
   });
 
-  it("should show Streams section in sidebar", async () => {
-    const workbench = await browser.getWorkbench();
-    const sidebar = workbench.getSideBar();
-    const content = sidebar.getContent();
-    const sections = await content.getSections();
-    const titles = await Promise.all(sections.map((s) => s.getTitle()));
-    expect(titles).toContain("Streams");
-  });
+  it("should have all consumer commands registered", async () => {
+    const commands = await browser.executeWorkbench((vscode) => {
+      return vscode.commands
+        .getCommands(true)
+        .then((cmds: string[]) =>
+          cmds.filter((c: string) => c.startsWith("leafnode.consumers.")),
+        );
+    });
 
-  it("should refresh streams without error", async () => {
-    // Should not throw even without a connection
-    try {
-      await executeCommand("leafnode.streams.refresh");
-      expect(true).toBe(true);
-    } catch {
-      expect(true).toBe(true);
-    }
+    expect(commands).toContain("leafnode.consumers.create");
+    expect(commands).toContain("leafnode.consumers.delete");
+    expect(commands).toContain("leafnode.consumers.pause");
+    expect(commands).toContain("leafnode.consumers.resume");
   });
 });

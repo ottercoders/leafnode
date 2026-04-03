@@ -8,10 +8,24 @@
 export async function openLeafnodeSidebar(): Promise<void> {
   const workbench = await browser.getWorkbench();
   const activityBar = workbench.getActivityBar();
-  const natsView = await activityBar.getViewControl("NATS");
-  if (natsView) {
-    await natsView.openView();
+
+  // Try known view control names
+  for (const name of ["NATS", "Leafnode"]) {
+    try {
+      const view = await activityBar.getViewControl(name);
+      if (view) {
+        await view.openView();
+        return;
+      }
+    } catch {
+      // Try next name
+    }
   }
+
+  // Fallback: use command to focus the view
+  await browser.executeWorkbench((vscode) => {
+    return vscode.commands.executeCommand("leafnode.connections.focus");
+  });
 }
 
 /**
