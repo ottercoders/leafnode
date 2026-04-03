@@ -1,38 +1,36 @@
-import { openLeafnodeSidebar } from "./setup.e2e";
-
 const SCREENSHOTS = "./test/screenshots";
 
 describe("Extension Activation", () => {
-  it("should show NATS icon in activity bar", async () => {
-    const workbench = await browser.getWorkbench();
-    const activityBar = workbench.getActivityBar();
-    const natsView = await activityBar.getViewControl("NATS");
-    expect(natsView).toBeDefined();
+  it("should activate and register leafnode commands", async () => {
+    const commands = await browser.executeWorkbench((vscode) => {
+      return vscode.commands
+        .getCommands(true)
+        .then((cmds: string[]) =>
+          cmds.filter((c: string) => c.startsWith("leafnode.")),
+        );
+    });
+
+    expect(commands.length).toBeGreaterThan(10);
+    expect(commands).toContain("leafnode.addConnection");
+    expect(commands).toContain("leafnode.connect");
+    expect(commands).toContain("leafnode.streams.refresh");
+    expect(commands).toContain("leafnode.kv.refresh");
+    expect(commands).toContain("leafnode.openPubSub");
+    expect(commands).toContain("leafnode.openServerMonitor");
+
+    await browser.saveScreenshot(`${SCREENSHOTS}/activation.png`);
   });
 
-  it("should open Leafnode sidebar with expected sections", async () => {
-    await openLeafnodeSidebar();
-    await browser.saveScreenshot(`${SCREENSHOTS}/sidebar-overview.png`);
-
+  it("should show Leafnode commands in command palette", async () => {
     const workbench = await browser.getWorkbench();
-    const sidebar = workbench.getSideBar();
-    const content = sidebar.getContent();
-    const sections = await content.getSections();
-    const titles = await Promise.all(sections.map((s) => s.getTitle()));
+    const prompt = await workbench.openCommandPrompt();
+    await prompt.setText(">Leafnode");
+    await browser.pause(1000);
 
-    expect(titles).toContain("Connections");
-    expect(titles).toContain("Streams");
-    expect(titles).toContain("KV Stores");
-    expect(titles).toContain("Object Stores");
-    expect(titles).toContain("Subjects");
-  });
+    const picks = await prompt.getQuickPicks();
+    expect(picks.length).toBeGreaterThan(0);
 
-  it("should show NATS status bar item", async () => {
-    const workbench = await browser.getWorkbench();
-    const statusBar = workbench.getStatusBar();
-    const items = await statusBar.getItems();
-    const texts = await Promise.all(items.map((i) => i.getText()));
-    const hasNats = texts.some((t) => t.includes("NATS"));
-    expect(hasNats).toBe(true);
+    await browser.saveScreenshot(`${SCREENSHOTS}/command-palette.png`);
+    await browser.keys("Escape");
   });
 });

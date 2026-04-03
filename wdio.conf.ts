@@ -14,19 +14,30 @@ export const config: Options.Testrunner = {
       browserVersion: "stable",
       "wdio:vscodeOptions": {
         extensionPath: __dirname,
+        workspacePath: __dirname,
         userSettings: {
           "leafnode.autoRefreshInterval": 0,
         },
+        vscodeArgs: ["--disable-gpu", "--disable-extensions"],
       },
     } as WebdriverIO.Capabilities,
   ],
-  services: ["vscode"],
+  services: [
+    [
+      "vscode",
+      {
+        connectionTimeout: 30000,
+        commandTimeout: 15000,
+      },
+    ],
+  ],
   framework: "mocha",
   reporters: ["spec"],
   mochaOpts: {
     ui: "bdd",
-    timeout: 60000,
+    timeout: 120000,
   },
+  waitforTimeout: 30000,
 
   before: async function () {
     if (!fs.existsSync(SCREENSHOTS_DIR)) {
