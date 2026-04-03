@@ -55,21 +55,7 @@ jobs:
         run: npm run test
 
       - name: E2E tests
-        continue-on-error: true
-        uses: GabrielBB/xvfb-action@v1
-        with:
-          run: npm run test:e2e
-        env:
-          NATS_URL: nats://localhost:4222
-
-      - name: Upload test screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-screenshots
-          path: test/screenshots/
-          retention-days: 30
-          if-no-files-found: ignore
+        run: xvfb-run -a npm run test:e2e
 
       - name: Package VSIX
         run: npx vsce package --no-dependencies -o leafnode.vsix

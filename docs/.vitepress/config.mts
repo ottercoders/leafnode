@@ -1,6 +1,7 @@
 import { defineConfig } from "vitepress";
+import { withMermaid } from "vitepress-plugin-mermaid";
 
-export default defineConfig({
+export default withMermaid(defineConfig({
   title: "Leafnode",
   description: "NATS observability and management for VS Code",
   base: "/leafnode/",
@@ -44,4 +45,4 @@ export default defineConfig({
       message: "Released under the MIT License.",
     },
   },
-});
+}));
