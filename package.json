@@ -494,6 +494,8 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "wdio run wdio.conf.ts",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
     "package": "vsce package --no-dependencies"
   },
   "devDependencies": {
@@ -509,6 +511,7 @@
     "eslint": "^9.0.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.0.0",
+    "vitepress": "^1.6.4",
     "vitest": "^3.0.0",
     "wdio-vscode-service": "^6.1.4",
     "webdriverio": "^8.46.0"

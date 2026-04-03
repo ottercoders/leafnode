@@ -1,4 +1,7 @@
 import type { Options } from "@wdio/types";
+import * as fs from "fs";
+
+const SCREENSHOTS_DIR = "./test/screenshots";
 
 export const config: Options.Testrunner = {
   runner: "local",
@@ -23,5 +26,27 @@ export const config: Options.Testrunner = {
   mochaOpts: {
     ui: "bdd",
     timeout: 60000,
+  },
+
+  before: async function () {
+    if (!fs.existsSync(SCREENSHOTS_DIR)) {
+      fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+    }
+  },
+
+  afterTest: async function (test, _context, { error }) {
+    if (error) {
+      const name = test.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+      await browser.saveScreenshot(`${SCREENSHOTS_DIR}/fail-${name}.png`);
+    }
+  },
+
+  afterSuite: async function (suite) {
+    const name = suite.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    try {
+      await browser.saveScreenshot(`${SCREENSHOTS_DIR}/suite-${name}.png`);
+    } catch {
+      // May fail if browser already closed
+    }
   },
 };

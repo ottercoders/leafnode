@@ -18,3 +18,4 @@ wdio.conf.ts
 !README.md
 plan.md
 .gitignore
+docs/**
