@@ -20,6 +20,7 @@ import {
   readNkeyFile,
 } from "./connections/context-import";
 import { createServices } from "./services";
+import { MonitoringService } from "./services/monitoring";
 import { BookmarksService } from "./services/bookmarks";
 
 function showError(prefix: string, err: unknown): void {
@@ -37,6 +38,8 @@ export interface LeafnodeAPI {
   panelManager: WebviewPanelManager;
   connectionManager: ConnectionManager;
   getServices: (connectionId: string) => import("./services").Services | undefined;
+  bookmarks: import("./services/bookmarks").BookmarksService;
+  createMonitoringService: (url: string) => import("./services/monitoring").MonitoringService;
 }
 
 let connectionManager: ConnectionManager;
@@ -50,7 +53,6 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
   context.subscriptions.push(panelManager);
 
   const messageRouter = new WebviewMessageRouter(connectionManager);
-  messageRouter.setBookmarksService(new BookmarksService(context.globalState));
   context.subscriptions.push(messageRouter);
 
   // Clear services cache on disconnect
@@ -851,6 +853,9 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
     }
   }
 
+  const bookmarksService = new BookmarksService(context.globalState);
+  messageRouter.setBookmarksService(bookmarksService);
+
   return {
     panelManager,
     connectionManager,
@@ -858,6 +863,8 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
       const nc = connectionManager.getConnection(id);
       return nc ? createServices(nc) : undefined;
     },
+    bookmarks: bookmarksService,
+    createMonitoringService: (url: string) => new MonitoringService(url),
   };
 }
 
