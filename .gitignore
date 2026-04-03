@@ -3,5 +3,6 @@ dist/
 *.vsix
 .vscode-test/
 test/screenshots/*.png
+test-results/
 docs/.vitepress/dist/
 docs/.vitepress/cache/

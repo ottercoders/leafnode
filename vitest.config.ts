@@ -4,5 +4,7 @@ export default defineConfig({
   test: {
     include: ["test/unit/**/*.test.ts"],
     globals: true,
+    reporters: ["default", "junit"],
+    outputFile: { junit: "./test-results/vitest.xml" },
   },
 });
