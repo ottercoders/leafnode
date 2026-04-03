@@ -17,6 +17,7 @@ npm run watch                  # watch both in parallel
 npm run typecheck              # tsc --noEmit
 npm run lint                   # eslint src/
 npm run test                   # vitest unit tests
+npm run test:integration       # vitest integration tests (requires nats-server on localhost:4222)
 npm run package                # vsce package --no-dependencies → .vsix
 ```
 
@@ -25,8 +26,8 @@ F5 in VS Code launches the Extension Development Host (requires `npm run watch` 
 ## Architecture
 
 - **Extension host** (Node.js): esbuild bundles `src/extension.ts` → `dist/extension.js` (CJS). All NATS I/O happens here via TCP (`@nats-io/transport-node`). `vscode` is externalized.
-- **Webview UI** (browser): Svelte 5 + Vite builds `webview-ui/src/panels/*/` → `dist/webview/`. Three panels: `message-browser`, `pub-sub`, `kv-editor`. Communicates with extension host via `postMessage`.
-- **Tree views**: Native VS Code tree data providers for connections, streams, and KV stores.
+- **Webview UI** (browser): Svelte 5 + Vite builds `webview-ui/src/panels/*/` → `dist/webview/`. Five panels: `message-browser`, `pub-sub`, `kv-editor`, `obj-viewer`, `server-monitor`. Communicates with extension host via `postMessage`.
+- **Tree views**: Native VS Code tree data providers for connections, streams, KV stores, object stores, and subjects.
 
 Webviews never connect to NATS directly — all data flows through the extension host via the `WebviewMessageRouter`.
 
@@ -38,13 +39,17 @@ Webviews never connect to NATS directly — all data flows through the extension
 | `src/connections/manager.ts` | Connection lifecycle, SecretStorage, reconnect |
 | `src/connections/auth.ts` | Builds NATS `ConnectionOptions` from auth config |
 | `src/connections/context-import.ts` | Parses `~/.config/nats/context/*.json` |
-| `src/services/` | Service wrappers: `jetstream.ts`, `kv.ts`, `nats.ts` |
-| `src/types/` | `connection.ts` (config/auth), `nats.ts` (view types), `messages.ts` (postMessage protocol) |
+| `src/services/` | Service wrappers: `jetstream.ts`, `kv.ts`, `nats.ts`, `obj.ts`, `monitoring.ts`, `bookmarks.ts` |
+| `src/types/` | `connection.ts` (config/auth), `nats.ts` (view types), `messages.ts` (postMessage protocol), `monitoring.ts` (HTTP API types) |
 | `src/utils/` | `codec.ts` (payload decode), `format.ts` (bytes/count/duration), `subject.ts` (wildcard matching) |
-| `src/views/trees/` | Tree providers: `connections.ts`, `streams.ts`, `kv.ts` |
+| `src/views/trees/` | Tree providers: `connections.ts`, `streams.ts`, `kv.ts`, `obj.ts`, `subjects.ts` |
 | `src/views/webviews/` | `webview-panel-manager.ts` (CSP, URI rewriting), `message-router.ts` (postMessage dispatch) |
+| `src/views/input/` | Multi-step wizards: `connection-wizard.ts`, `stream-wizard.ts`, `consumer-wizard.ts` |
+| `src/cli/nats-cli.ts` | NATS CLI detection and command palette integration |
+| `src/config/workspace.ts` | `.leafnode.json` workspace config loader |
+| `schemas/` | `leafnode-config.schema.json` for `.leafnode.json` IntelliSense |
 | `webview-ui/src/panels/` | Svelte 5 components for each webview panel |
-| `webview-ui/src/lib/` | `vscode-api.ts` (postMessage wrapper), `theme.css` (VS Code CSS vars) |
+| `webview-ui/src/lib/` | `vscode-api.ts` (postMessage wrapper), `theme.css` (VS Code CSS vars), `VirtualList.svelte`, `Sparkline.svelte` |
 
 ## NATS Client (v3 modular)
 
@@ -52,6 +57,7 @@ Webviews never connect to NATS directly — all data flows through the extension
 import { connect } from "@nats-io/transport-node";
 import { jetstream, jetstreamManager } from "@nats-io/jetstream";
 import { Kvm } from "@nats-io/kv";
+import { Objm } from "@nats-io/obj";
 // NOT the old nc.jetstream() / nc.kv() pattern
 ```
 
@@ -63,7 +69,8 @@ import { Kvm } from "@nats-io/kv";
 - Tree items use codicons (`$(plug)`, `$(database)`, `$(archive)`, etc.) and `contextValue` for menu `when` clauses.
 - Commands follow the pattern `leafnode.<area>.<action>` (e.g. `leafnode.streams.purge`).
 - Webview-extension communication uses discriminated unions: `ExtensionMessage` (webview→ext) and `WebviewMessage` (ext→webview) in `src/types/messages.ts`.
-- `.vscodeignore` keeps the VSIX small (~100KB). Only `dist/`, `resources/`, `package.json`, `README.md` are included. `--no-dependencies` on vsce since esbuild bundles everything.
+- `.vscodeignore` keeps the VSIX small (~130KB). Only `dist/`, `resources/`, `schemas/`, `package.json`, `README.md` are included. `--no-dependencies` on vsce since esbuild bundles everything.
+- Error messages in commands use the `showError(prefix, err)` helper in `extension.ts`.
 
 ## CI/CD
 

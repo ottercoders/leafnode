@@ -416,6 +416,16 @@ export class WebviewMessageRouter implements vscode.Disposable {
         break;
       }
 
+      case "monitor:accountz": {
+        const monSvc = this.getMonitoringService(message.connectionId);
+        const accountz = await monSvc.getAccountz();
+        panel.webview.postMessage({
+          type: "monitor:accountz:data",
+          data: accountz,
+        });
+        break;
+      }
+
       case "export:messages": {
         const uri = await vscode.window.showSaveDialog({
           defaultUri: vscode.Uri.file("messages.json"),

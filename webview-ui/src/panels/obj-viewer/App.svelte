@@ -39,8 +39,19 @@
     vscode.postMessage({ type: "obj:info", connectionId, store, name: objectName });
   }
 
+  let confirmingDelete = $state(false);
+
   function deleteObject() {
+    if (!confirmingDelete) {
+      confirmingDelete = true;
+      return;
+    }
     vscode.postMessage({ type: "obj:delete", connectionId, store, name: objectName });
+    confirmingDelete = false;
+  }
+
+  function cancelDelete() {
+    confirmingDelete = false;
   }
 
   function formatBytes(bytes: number): string {
@@ -72,7 +83,13 @@
   {:else}
     <div class="toolbar">
       <button class="secondary" onclick={fetchInfo}>Refresh</button>
-      <button class="danger" onclick={deleteObject}>Delete</button>
+      {#if confirmingDelete}
+        <span class="confirm-text">Delete this object?</span>
+        <button class="danger" onclick={deleteObject}>Confirm</button>
+        <button class="secondary" onclick={cancelDelete}>Cancel</button>
+      {:else}
+        <button class="danger" onclick={deleteObject}>Delete</button>
+      {/if}
     </div>
 
     <div class="info-pane">
@@ -119,4 +136,5 @@
   .digest { word-break: break-all; }
   .loading, .empty { padding: 24px; text-align: center; color: var(--vscode-descriptionForeground); }
   .danger { color: var(--vscode-errorForeground); }
+  .confirm-text { color: var(--vscode-errorForeground); font-size: 0.9em; }
 </style>

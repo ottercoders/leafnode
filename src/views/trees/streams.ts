@@ -76,7 +76,7 @@ export class StreamsTreeProvider
         item.description = `${formatCount(s.state.messages)} msgs, ${formatBytes(s.state.bytes)}`;
         item.iconPath = new vscode.ThemeIcon("database");
         item.contextValue = "stream";
-        item.tooltip = `${s.name}\nMessages: ${s.state.messages}\nBytes: ${formatBytes(s.state.bytes)}\nSubjects: ${s.config.subjects.join(", ")}`;
+        item.tooltip = `${s.name}\nMessages: ${s.state.messages}\nBytes: ${formatBytes(s.state.bytes)}\nSubjects: ${s.config.subjects.join(", ")}\nStorage: ${s.config.storage}\nRetention: ${s.config.retention}\nReplicas: ${s.config.replicas}`;
         return item;
       }
 
