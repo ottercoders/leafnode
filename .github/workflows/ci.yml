@@ -54,6 +54,13 @@ jobs:
       - name: Unit tests
         run: npm run test
 
+      - name: E2E tests
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: npm run test:e2e
+        env:
+          NATS_URL: nats://localhost:4222
+
       - name: Package VSIX
         run: npx vsce package --no-dependencies -o leafnode.vsix
 
