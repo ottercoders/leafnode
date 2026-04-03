@@ -510,6 +510,7 @@
     "esbuild": "^0.24.0",
     "eslint": "^9.0.0",
     "mermaid": "^11.14.0",
+    "mocha-junit-reporter": "^2.2.1",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.0.0",
     "vitepress": "^1.6.4",
