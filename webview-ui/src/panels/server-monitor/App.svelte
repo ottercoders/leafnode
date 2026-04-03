@@ -67,12 +67,19 @@
     total_consumers: number;
   }
 
+  interface AccountzData {
+    server_id: string;
+    now: string;
+    accounts: string[];
+  }
+
   let connectionId = $state("");
-  let activeTab = $state<"server" | "connections" | "jetstream">("server");
+  let activeTab = $state<"server" | "connections" | "jetstream" | "accounts">("server");
 
   let varz = $state<VarzData | null>(null);
   let connz = $state<ConnzData | null>(null);
   let jsz = $state<JszData | null>(null);
+  let accountz = $state<AccountzData | null>(null);
   let error = $state("");
 
   // Sparkline history
@@ -107,6 +114,7 @@
     vscode.postMessage({ type: "monitor:varz", connectionId });
     vscode.postMessage({ type: "monitor:connz", connectionId });
     vscode.postMessage({ type: "monitor:jsz", connectionId });
+    vscode.postMessage({ type: "monitor:accountz", connectionId });
   }
 
   $effect(() => {
@@ -132,6 +140,8 @@
         connz = msg.data;
       } else if (msg.type === "monitor:jsz:data") {
         jsz = msg.data;
+      } else if (msg.type === "monitor:accountz:data") {
+        accountz = msg.data;
       } else if (msg.type === "error") {
         error = msg.message;
       }
@@ -160,6 +170,10 @@
     <button
       class:active={activeTab === "jetstream"}
       onclick={() => (activeTab = "jetstream")}>JetStream</button
+    >
+    <button
+      class:active={activeTab === "accounts"}
+      onclick={() => (activeTab = "accounts")}>Accounts</button
     >
   </div>
 
@@ -327,6 +341,34 @@
         </div>
       {:else if !error}
         <div class="empty">Loading JetStream info...</div>
+      {/if}
+    </div>
+  {:else if activeTab === "accounts"}
+    <div class="panel">
+      {#if accountz}
+        <div class="table-info">
+          {accountz.accounts.length} account{accountz.accounts.length !== 1 ? "s" : ""}
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Account</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each accountz.accounts as account, i}
+                <tr>
+                  <td class="num">{i + 1}</td>
+                  <td class="mono">{account}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {:else if !error}
+        <div class="empty">Loading accounts...</div>
       {/if}
     </div>
   {/if}

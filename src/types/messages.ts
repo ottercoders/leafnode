@@ -12,7 +12,7 @@ import type {
   SavedTemplate,
   MessageBookmark,
 } from "../services/bookmarks";
-import type { VarzResponse, ConnzResponse, JszResponse } from "./monitoring";
+import type { VarzResponse, ConnzResponse, JszResponse, AccountzResponse } from "./monitoring";
 
 // Messages from webview to extension host
 export type ExtensionMessage =
@@ -74,7 +74,8 @@ export type ExtensionMessage =
   | { type: "bookmarks:deleteMessage"; name: string }
   | { type: "monitor:varz"; connectionId: string }
   | { type: "monitor:connz"; connectionId: string }
-  | { type: "monitor:jsz"; connectionId: string };
+  | { type: "monitor:jsz"; connectionId: string }
+  | { type: "monitor:accountz"; connectionId: string };
 
 // Messages from extension host to webview
 export type WebviewMessage =
@@ -100,4 +101,5 @@ export type WebviewMessage =
   | { type: "error"; message: string }
   | { type: "monitor:varz:data"; data: VarzResponse }
   | { type: "monitor:connz:data"; data: ConnzResponse }
-  | { type: "monitor:jsz:data"; data: JszResponse };
+  | { type: "monitor:jsz:data"; data: JszResponse }
+  | { type: "monitor:accountz:data"; data: AccountzResponse };

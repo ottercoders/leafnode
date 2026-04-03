@@ -3,17 +3,17 @@
   "displayName": "Leafnode",
   "description": "NATS observability and management for VS Code",
   "version": "0.0.1",
-  "publisher": "otterdevs",
+  "publisher": "ottercoders",
   "license": "MIT",
   "icon": "resources/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/otterdevs/leafnode"
+    "url": "https://github.com/ottercoders/leafnode"
   },
   "bugs": {
-    "url": "https://github.com/otterdevs/leafnode/issues"
+    "url": "https://github.com/ottercoders/leafnode/issues"
   },
-  "homepage": "https://github.com/otterdevs/leafnode#readme",
+  "homepage": "https://github.com/ottercoders/leafnode#readme",
   "galleryBanner": {
     "color": "#1a1a2e",
     "theme": "dark"

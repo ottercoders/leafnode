@@ -20,6 +20,11 @@ import {
   readNkeyFile,
 } from "./connections/context-import";
 import { BookmarksService } from "./services/bookmarks";
+
+function showError(prefix: string, err: unknown): void {
+  const msg = err instanceof Error ? err.message : String(err);
+  vscode.window.showErrorMessage(`${prefix}: ${msg}`);
+}
 import { isNatsCliAvailable, COMMON_COMMANDS } from "./cli/nats-cli";
 import {
   findWorkspaceConfig,
@@ -162,9 +167,7 @@ export function activate(context: vscode.ExtensionContext): void {
       try {
         await connectionManager.connect(id);
       } catch (err) {
-        vscode.window.showErrorMessage(
-          `Failed to connect: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        showError("Failed to connect", err);
       }
     }),
 
@@ -287,9 +290,7 @@ export function activate(context: vscode.ExtensionContext): void {
           streamsTree.refresh();
           vscode.window.showInformationMessage(`Purged stream "${item.stream.name}".`);
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to purge: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to purge", err);
         }
       },
     ),
@@ -310,9 +311,7 @@ export function activate(context: vscode.ExtensionContext): void {
           streamsTree.refresh();
           vscode.window.showInformationMessage(`Deleted stream "${item.stream.name}".`);
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to delete: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to delete", err);
         }
       },
     ),
@@ -334,9 +333,7 @@ export function activate(context: vscode.ExtensionContext): void {
         streamsTree.refresh();
         vscode.window.showInformationMessage(`Created stream "${config.name}".`);
       } catch (err) {
-        vscode.window.showErrorMessage(
-          `Failed to create stream: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        showError("Failed to create stream", err);
       }
     }),
 
@@ -361,9 +358,7 @@ export function activate(context: vscode.ExtensionContext): void {
           streamsTree.refresh();
           vscode.window.showInformationMessage(`Updated stream "${item.stream.name}".`);
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to update stream: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to update stream", err);
         }
       },
     ),
@@ -387,9 +382,7 @@ export function activate(context: vscode.ExtensionContext): void {
           streamsTree.refresh();
           vscode.window.showInformationMessage(`Created stream "${config.name}".`);
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to create stream: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to create stream", err);
         }
       },
     ),
@@ -410,9 +403,7 @@ export function activate(context: vscode.ExtensionContext): void {
           streamsTree.refresh();
           vscode.window.showInformationMessage(`Sealed stream "${item.stream.name}".`);
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to seal stream: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to seal stream", err);
         }
       },
     ),
@@ -436,9 +427,7 @@ export function activate(context: vscode.ExtensionContext): void {
           streamsTree.refresh();
           vscode.window.showInformationMessage(`Created consumer "${result.name}" on stream "${streamName}".`);
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to create consumer: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to create consumer", err);
         }
       },
     ),
@@ -459,9 +448,7 @@ export function activate(context: vscode.ExtensionContext): void {
           streamsTree.refresh();
           vscode.window.showInformationMessage(`Deleted consumer "${item.consumer.name}".`);
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to delete consumer: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to delete consumer", err);
         }
       },
     ),
@@ -476,9 +463,7 @@ export function activate(context: vscode.ExtensionContext): void {
           streamsTree.refresh();
           vscode.window.showInformationMessage(`Paused consumer "${item.consumer.name}".`);
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to pause consumer: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to pause consumer", err);
         }
       },
     ),
@@ -493,9 +478,7 @@ export function activate(context: vscode.ExtensionContext): void {
           streamsTree.refresh();
           vscode.window.showInformationMessage(`Resumed consumer "${item.consumer.name}".`);
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to resume consumer: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to resume consumer", err);
         }
       },
     ),
@@ -560,9 +543,7 @@ export function activate(context: vscode.ExtensionContext): void {
           await createServices(nc).kv.delete(item.bucket, item.key);
           kvTree.refresh();
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to delete key: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to delete key", err);
         }
       },
     ),
@@ -586,9 +567,7 @@ export function activate(context: vscode.ExtensionContext): void {
         kvTree.refresh();
         vscode.window.showInformationMessage(`Created KV bucket "${name}".`);
       } catch (err) {
-        vscode.window.showErrorMessage(
-          `Failed to create bucket: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        showError("Failed to create bucket", err);
       }
     }),
 
@@ -608,9 +587,7 @@ export function activate(context: vscode.ExtensionContext): void {
           kvTree.refresh();
           vscode.window.showInformationMessage(`Deleted bucket "${item.bucket}".`);
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to delete bucket: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to delete bucket", err);
         }
       },
     ),
@@ -630,9 +607,7 @@ export function activate(context: vscode.ExtensionContext): void {
           await createServices(nc).kv.purge(item.bucket, item.key);
           kvTree.refresh();
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to purge key: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to purge key", err);
         }
       },
     ),
@@ -678,9 +653,7 @@ export function activate(context: vscode.ExtensionContext): void {
           );
           kvTree.refresh();
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to create key: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to create key", err);
         }
       },
     ),
@@ -751,9 +724,7 @@ export function activate(context: vscode.ExtensionContext): void {
           objTree.refresh();
           vscode.window.showInformationMessage(`Deleted object "${item.name}".`);
         } catch (err) {
-          vscode.window.showErrorMessage(
-            `Failed to delete object: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          showError("Failed to delete object", err);
         }
       },
     ),

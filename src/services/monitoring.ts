@@ -7,22 +7,38 @@ import type {
   AccountzResponse,
 } from "../types/monitoring";
 
+const REQUEST_TIMEOUT = 5000;
+
 async function fetchJson<T>(url: string): Promise<T> {
   return new Promise((resolve, reject) => {
     const mod = url.startsWith("https") ? https : http;
-    mod
-      .get(url, (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch (e) {
-            reject(e);
-          }
-        });
-      })
-      .on("error", reject);
+    const req = mod.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        reject(
+          new Error(
+            `HTTP ${res.statusCode} from ${url}`,
+          ),
+        );
+        return;
+      }
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(new Error(`Invalid JSON from ${url}: ${e}`));
+        }
+      });
+    });
+    req.on("error", (e) =>
+      reject(new Error(`Request failed for ${url}: ${e.message}`)),
+    );
+    req.setTimeout(REQUEST_TIMEOUT, () => {
+      req.destroy();
+      reject(new Error(`Request timed out after ${REQUEST_TIMEOUT}ms: ${url}`));
+    });
   });
 }
 
