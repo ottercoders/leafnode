@@ -1,5 +1,8 @@
 <script lang="ts">
   import { vscode } from "../../lib/vscode-api";
+  import CopyButton from "../../lib/CopyButton.svelte";
+  import KeyValue from "../../lib/KeyValue.svelte";
+  import EmptyState from "../../lib/EmptyState.svelte";
 
   interface ObjectInfo {
     name: string;
@@ -14,6 +17,7 @@
   let objectName = $state("");
   let info = $state<ObjectInfo | null>(null);
   let loading = $state(true);
+  let confirmingDelete = $state(false);
 
   $effect(() => {
     const handler = (event: MessageEvent) => {
@@ -36,17 +40,25 @@
 
   function fetchInfo() {
     loading = true;
-    vscode.postMessage({ type: "obj:info", connectionId, store, name: objectName });
+    vscode.postMessage({
+      type: "obj:info",
+      connectionId,
+      store,
+      name: objectName,
+    });
   }
-
-  let confirmingDelete = $state(false);
 
   function deleteObject() {
     if (!confirmingDelete) {
       confirmingDelete = true;
       return;
     }
-    vscode.postMessage({ type: "obj:delete", connectionId, store, name: objectName });
+    vscode.postMessage({
+      type: "obj:delete",
+      connectionId,
+      store,
+      name: objectName,
+    });
     confirmingDelete = false;
   }
 
@@ -63,78 +75,161 @@
 
   function formatTimestamp(ts: string): string {
     if (!ts) return "-";
-    return ts.replace("T", " ").replace("Z", "");
+    return ts.replace("T", " ").replace("Z", " UTC");
+  }
+
+  function formatDigest(digest: string): string {
+    // Insert a space every 8 characters for readability
+    return digest.replace(/(.{8})/g, "$1 ").trim();
   }
 </script>
 
 <main>
-  <div class="header">
+  <!-- Breadcrumb header -->
+  <div class="obj-header">
     <div class="breadcrumb">
-      <span class="store-name">{store}</span>
-      <span class="sep">/</span>
-      <span class="object-name">{objectName}</span>
+      <span class="breadcrumb-store">{store}</span>
+      <span class="breadcrumb-sep">/</span>
+      <span class="breadcrumb-name">{objectName}</span>
     </div>
   </div>
 
   {#if loading}
-    <div class="loading">Loading...</div>
+    <EmptyState state="loading" message="Loading object info..." />
   {:else if !info}
-    <div class="empty">Object not found.</div>
+    <EmptyState state="error" message="Object not found." />
   {:else}
+    <!-- Actions toolbar -->
     <div class="toolbar">
       <button class="secondary" onclick={fetchInfo}>Refresh</button>
+      <div class="spacer"></div>
       {#if confirmingDelete}
-        <span class="confirm-text">Delete this object?</span>
-        <button class="danger" onclick={deleteObject}>Confirm</button>
+        <span class="confirm-label">Confirm delete?</span>
+        <button class="danger" onclick={deleteObject}>Confirm Delete</button>
         <button class="secondary" onclick={cancelDelete}>Cancel</button>
       {:else}
         <button class="danger" onclick={deleteObject}>Delete</button>
       {/if}
     </div>
 
-    <div class="info-pane">
-      <table class="info-table">
-        <tbody>
-          <tr>
-            <td class="label">Name</td>
-            <td>{info.name}</td>
-          </tr>
-          <tr>
-            <td class="label">Size</td>
-            <td>{formatBytes(info.size)}</td>
-          </tr>
-          <tr>
-            <td class="label">Chunks</td>
-            <td>{info.chunks}</td>
-          </tr>
-          <tr>
-            <td class="label">Last Modified</td>
-            <td class="mono">{formatTimestamp(info.lastModified)}</td>
-          </tr>
-          <tr>
-            <td class="label">Digest</td>
-            <td class="mono digest">{info.digest}</td>
-          </tr>
-        </tbody>
-      </table>
+    <!-- Metadata card -->
+    <div class="detail-card">
+      <div class="panel-section">
+        <KeyValue label="Name" value={info.name} mono copyable />
+        <KeyValue
+          label="Size"
+          value={`${formatBytes(info.size)} (${info.size.toLocaleString()} bytes)`}
+          copyable
+        />
+        <KeyValue label="Chunks" value={String(info.chunks)} />
+        <KeyValue
+          label="Last Modified"
+          value={formatTimestamp(info.lastModified)}
+          mono
+          copyable
+        />
+      </div>
+
+      <div class="panel-section">
+        <div class="digest-row">
+          <dt class="digest-label">Digest</dt>
+          <dd class="digest-value">
+            <code class="digest-code">{formatDigest(info.digest)}</code>
+            <CopyButton text={info.digest} label="Copy digest" />
+          </dd>
+        </div>
+      </div>
     </div>
   {/if}
 </main>
 
 <style>
-  main { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-  .header { padding: 8px; border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent)); flex-shrink: 0; }
-  .breadcrumb { font-weight: 600; font-size: 1.1em; display: flex; align-items: center; gap: 4px; }
-  .store-name { color: var(--vscode-descriptionForeground); }
-  .sep { color: var(--vscode-descriptionForeground); margin: 0 4px; }
-  .toolbar { display: flex; gap: 4px; padding: 8px; flex-shrink: 0; }
-  .info-pane { flex: 1; overflow: auto; padding: 0 8px; }
-  .info-table { width: 100%; border-collapse: collapse; }
-  .info-table td { padding: 6px 8px; border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent)); }
-  .label { font-weight: 600; color: var(--vscode-descriptionForeground); width: 120px; white-space: nowrap; }
-  .mono { font-family: var(--vscode-editor-font-family); font-size: var(--vscode-editor-font-size); }
-  .digest { word-break: break-all; }
-  .loading, .empty { padding: 24px; text-align: center; color: var(--vscode-descriptionForeground); }
-  .danger { color: var(--vscode-errorForeground); }
-  .confirm-text { color: var(--vscode-errorForeground); font-size: 0.9em; }
+  main {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .obj-header {
+    padding: var(--space-3);
+    border-bottom: 1px solid
+      var(--vscode-panel-border, var(--vscode-widget-border, transparent));
+    flex-shrink: 0;
+  }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 1.05em;
+  }
+
+  .breadcrumb-store {
+    color: var(--vscode-descriptionForeground);
+    font-weight: 500;
+  }
+
+  .breadcrumb-sep {
+    color: var(--vscode-descriptionForeground);
+    margin: 0 4px;
+  }
+
+  .breadcrumb-name {
+    font-weight: 600;
+  }
+
+  .spacer {
+    flex: 1;
+  }
+
+  .confirm-label {
+    color: var(--vscode-errorForeground);
+    font-size: 0.9em;
+    font-weight: 500;
+  }
+
+  .detail-card {
+    flex: 1;
+    overflow: auto;
+    margin: var(--space-3);
+    border: 1px solid
+      var(--vscode-panel-border, var(--vscode-widget-border, transparent));
+    border-radius: var(--radius-lg);
+    background: var(
+      --vscode-sideBar-background,
+      var(--vscode-editor-background)
+    );
+  }
+
+  .detail-card .panel-section:last-child {
+    border-bottom: none;
+  }
+
+  .digest-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: 3px 0;
+  }
+
+  .digest-label {
+    color: var(--vscode-descriptionForeground);
+    font-size: 0.85em;
+    min-width: 90px;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+
+  .digest-value {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .digest-code {
+    word-break: break-all;
+    letter-spacing: 0.5px;
+  }
 </style>
