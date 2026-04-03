@@ -23,6 +23,7 @@ export default withMermaid(defineConfig({
             { text: "KV Stores", link: "/guide/kv-stores" },
             { text: "Object Stores", link: "/guide/object-stores" },
             { text: "Pub/Sub", link: "/guide/pub-sub" },
+            { text: "Bookmarks", link: "/guide/bookmarks" },
             { text: "Server Monitoring", link: "/guide/monitoring" },
           ],
         },

@@ -24,4 +24,12 @@ features:
     details: Browse and manage NATS Object Store contents.
   - title: Remote Compatible
     details: Works in SSH remotes, WSL, Codespaces, and code-server — runs wherever VS Code Server runs.
+  - title: Bookmarks
+    details: Save subscriptions, publish templates, and message bookmarks for quick access across sessions.
+  - title: Subject Explorer
+    details: Discover active subjects in your NATS cluster with hierarchical browsing.
+  - title: NATS CLI Integration
+    details: Run NATS CLI commands directly from VS Code with connection context.
+  - title: Workspace Configuration
+    details: Share connection and stream settings with your team via a .leafnode.json workspace config file.
 ---
