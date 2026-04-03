@@ -2,15 +2,31 @@
 
 NATS observability and management for VS Code.
 
-Browse JetStream streams, inspect messages, publish/subscribe in real time, and manage KV stores — all without leaving your editor. Works in local, SSH remote, WSL, Codespaces, and code-server environments.
+Browse JetStream streams, inspect messages, publish/subscribe in real time, manage KV stores, monitor server health, and more — all without leaving your editor. Works in local, SSH remote, WSL, Codespaces, and code-server environments.
 
 ## Features
 
-- **Connection Manager** — Add, connect, and manage multiple NATS servers. Import existing NATS CLI contexts. Credentials stored securely via VS Code SecretStorage.
-- **Stream Explorer** — Browse JetStream streams with message counts, byte sizes, and consumer lag. Expand streams to see consumers and subject bindings.
-- **Message Browser** — Inspect messages by sequence range or subject filter. View headers and payloads with auto-detected JSON formatting.
-- **Pub/Sub Panel** — Subscribe to subjects with wildcard support, publish messages with headers, and send request/reply — all in an interactive panel.
-- **KV Browser** — Browse Key-Value store buckets and keys in the sidebar tree. View, edit, and inspect key history in a dedicated editor panel.
+- **Connection Manager** — Add, connect, and manage multiple NATS servers. Import existing NATS CLI contexts. Supports anonymous, token, user/password, NKey, credentials file, and TLS certificate auth. Credentials stored securely via VS Code SecretStorage.
+
+- **Stream Explorer** — Browse JetStream streams with message counts, byte sizes, and consumer details. Create, edit, duplicate, seal, purge, and delete streams. Full consumer lifecycle management with pause/resume support.
+
+- **Message Browser** — Inspect messages by sequence range or time range. Filter by subject pattern. View headers and JSON-formatted payloads in a virtual-scrolled list. Bookmark messages for quick access.
+
+- **Pub/Sub Panel** — Subscribe to subjects with wildcard support and view live message feeds with color-coded subjects and real-time rate indicators. Publish messages with custom headers. Send request/reply with configurable timeouts. Filter messages with regex. Save subscriptions and publish templates. Export captured messages as JSON.
+
+- **KV Browser** — Browse Key-Value store buckets and keys in the sidebar. View, edit, and save key values with JSON formatting. Inspect key revision history. Watch keys for real-time updates. Create and delete buckets and keys.
+
+- **Object Stores** — Browse NATS Object Store contents with metadata viewer.
+
+- **Subject Explorer** — Hierarchical tree view of the NATS subject namespace, built from stream subject bindings.
+
+- **Server Monitoring** — Dashboard with real-time server stats (varz), active connections table (connz), JetStream metrics (jsz), and account listing. Auto-refreshes with sparkline charts.
+
+- **Bookmarks** — Save frequently-used subscriptions, publish templates, and message bookmarks for quick access across sessions.
+
+- **NATS CLI Integration** — Run common NATS CLI commands from the VS Code command palette.
+
+- **Workspace Configuration** — Share connection settings via `.leafnode.json` with JSON Schema validation and IntelliSense.
 
 ## Quick Start
 
@@ -24,6 +40,10 @@ Browse JetStream streams, inspect messages, publish/subscribe in real time, and 
 
 - A running NATS server (with JetStream enabled for stream/KV features)
 - VS Code 1.95.0 or later
+
+## Documentation
+
+Full documentation available at [ottercoders.github.io/leafnode](https://ottercoders.github.io/leafnode/).
 
 ## Architecture
 

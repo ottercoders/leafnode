@@ -21,6 +21,10 @@ Click the **Browse Messages** icon on a stream to open the Message Browser:
 - JSON payloads are automatically pretty-printed
 - Bookmark messages for quick access later
 
+Messages are displayed in a virtual-scrolled list for smooth performance even with thousands of messages.
+
+Toggle **Time range** in the toolbar to browse by date/time instead of sequence number.
+
 ## Stream Management
 
 Right-click a stream for management options:
@@ -38,4 +42,4 @@ Right-click a consumer under a stream:
 
 - **Create Consumer** — specify filter, ack policy, and deliver policy
 - **Delete** — remove the consumer
-- **Pause/Resume** — temporarily stop delivery
+- **Pause/Resume** — temporarily stop message delivery to the consumer. While paused, messages accumulate in the stream and are delivered once resumed. Useful for maintenance windows or debugging

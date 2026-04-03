@@ -72,16 +72,29 @@ import { Objm } from "@nats-io/obj";
 - `.vscodeignore` keeps the VSIX small (~130KB). Only `dist/`, `resources/`, `schemas/`, `package.json`, `README.md` are included. `--no-dependencies` on vsce since esbuild bundles everything.
 - Error messages in commands use the `showError(prefix, err)` helper in `extension.ts`.
 
+## Testing
+
+```bash
+npm run test                   # 51 unit tests (vitest)
+npm run test:integration       # integration tests (requires nats-server)
+npm run test:e2e               # 83 E2E tests (requires nats-server + Xvfb on Linux)
+```
+
+E2E tests use `@vscode/test-electron` — they run inside the VS Code extension host with full API access. Tests cover connection lifecycle, stream/consumer/KV CRUD, pub/sub round-trips, monitoring endpoints, bookmarks, and webview panel loading. CI runs them with `xvfb-run` and reports results via `dorny/test-reporter`.
+
 ## CI/CD
 
-- `.github/workflows/ci.yml` — Build + test on push/PR. Starts `nats:latest` Docker with JetStream (`-js -m 8222`). Uploads VSIX artifact.
+- `.github/workflows/ci.yml` — Build + test on push/PR. Starts `nats:latest` Docker with JetStream (`-js -m 8222`). Runs unit + E2E tests. Posts test report to PR. Creates pre-release on main pushes. Uploads VSIX artifact.
 - `.github/workflows/release.yml` — On GitHub Release publish: builds, sets version from tag, publishes to VS Code Marketplace + Open VSX, attaches VSIX to release.
+- `.github/workflows/docs.yml` — Deploys VitePress docs to GitHub Pages on changes to `docs/`.
 - Required secrets: `VSCE_PAT`, `OVSX_PAT`.
+
+## Documentation
+
+VitePress site at `docs/`. Run `npm run docs:dev` for local preview. Supports Mermaid diagrams via `vitepress-plugin-mermaid`.
 
 ## Roadmap
 
-Tracked as GitHub issues with phase labels (`phase-1` through `phase-4`):
-- **Phase 1** (#1-#9): MVP polish — edit connections, auto-refresh, virtual scroll, KV watch, integration tests
-- **Phase 2** (#10-#16): Consumer/stream CRUD, object stores, message tailing, subject explorer, schema support, bookmarks
-- **Phase 3** (#17-#20): Server monitoring dashboard, cluster topology, services discovery, account monitoring
-- **Phase 4** (#21-#25): NATS config language support, CodeLens, CLI integration, testing support, workspace config
+Tracked as GitHub issues. Most phases are implemented:
+- **Implemented**: #1-#8, #10-#14, #16-#17, #20, #23, #25 (19 of 25 issues)
+- **Open**: #9 (icon), #15 (schema support), #18 (cluster topology), #19 (services discovery), #21 (NATS config language), #22 (CodeLens), #24 (testing support)
