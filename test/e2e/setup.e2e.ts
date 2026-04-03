@@ -1,8 +1,5 @@
 /**
  * Shared E2E test helpers for Leafnode VS Code extension.
- *
- * Uses wdio-vscode-service page objects and browser.executeWorkbench
- * to interact with VS Code UI.
  */
 
 /**
@@ -27,6 +24,38 @@ export async function executeCommand(commandId: string): Promise<void> {
 }
 
 /**
+ * Get the first webview and open it (switches into iframe context).
+ * Returns a close function that must be called when done.
+ */
+export async function openWebview(): Promise<{
+  close: () => Promise<void>;
+}> {
+  const workbench = await browser.getWorkbench();
+  // Close welcome tab if present
+  try {
+    const editorView = workbench.getEditorView();
+    const tabs = await editorView.getOpenTabs();
+    for (const tab of tabs) {
+      const title = await tab.getTitle();
+      if (title === "Welcome") {
+        await editorView.closeEditor(title);
+      }
+    }
+  } catch {
+    // No welcome tab
+  }
+
+  const webviews = await workbench.getAllWebviews();
+  if (webviews.length === 0) {
+    throw new Error("No webviews found");
+  }
+  await webviews[0].open();
+  return {
+    close: () => webviews[0].close(),
+  };
+}
+
+/**
  * Wait for a notification message to appear.
  */
 export async function waitForNotification(
@@ -45,34 +74,6 @@ export async function waitForNotification(
     },
     { timeout, interval: 500 },
   );
-}
-
-/**
- * Get the title of the active editor/panel.
- */
-export async function getActiveEditorTitle(): Promise<string | undefined> {
-  const workbench = await browser.getWorkbench();
-  const editorView = workbench.getEditorView();
-  try {
-    const activeTab = await editorView.getActiveTab();
-    return activeTab ? await activeTab.getTitle() : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Get all visible status bar items text.
- */
-export async function getStatusBarText(): Promise<string[]> {
-  const workbench = await browser.getWorkbench();
-  const statusBar = workbench.getStatusBar();
-  const items = await statusBar.getItems();
-  const texts: string[] = [];
-  for (const item of items) {
-    texts.push(await item.getText());
-  }
-  return texts;
 }
 
 /**
