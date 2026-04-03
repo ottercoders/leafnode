@@ -65,7 +65,7 @@ interface Services {
     purgeStream(name: string): Promise<void>;
     getStreamMessages(
       stream: string,
-      opts: { startSeq?: number; limit: number; subject?: string },
+      opts: { startSeq?: number; startTime?: string; limit: number; subject?: string },
     ): Promise<MessageView[]>;
     listConsumers(stream: string): Promise<ConsumerInfo[]>;
     createConsumer(
@@ -1364,6 +1364,244 @@ suite("Leafnode Extension E2E", () => {
         type: "init",
         connectionId: connId,
       });
+    });
+  });
+
+  // ─── Time-Range Message Browsing ──────────────────────────
+
+  suite("Time-Range Message Browsing", () => {
+    const connId = uniqueName("time_conn");
+    const streamName = uniqueName("TIME_STREAM");
+
+    suiteSetup(async function () {
+      this.timeout(10000);
+      await api.connectionManager.addConnection({
+        id: connId, name: "Time Tests", servers: [NATS_URL],
+        auth: { type: "anonymous" },
+      });
+      await api.connectionManager.connect(connId);
+      const svc = api.getServices(connId)!;
+      await svc.jetstream.createStream({
+        name: streamName, subjects: [`${streamName}.>`],
+      });
+      // Publish messages with slight delay between them
+      for (let i = 0; i < 3; i++) {
+        await svc.nats.publish(`${streamName}.timed`, encoder.encode(`timed ${i}`));
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    });
+
+    suiteTeardown(async () => {
+      const svc = api.getServices(connId);
+      try { await svc?.jetstream.deleteStream(streamName); } catch { /* ok */ }
+      try { await api.connectionManager.disconnect(connId); } catch { /* ok */ }
+      try { await api.connectionManager.removeConnection(connId); } catch { /* ok */ }
+    });
+
+    test("browse by startTime returns messages", async function () {
+      this.timeout(15000);
+      const svc = api.getServices(connId)!;
+      const pastTime = new Date(Date.now() - 60000).toISOString();
+      const msgs = await svc.jetstream.getStreamMessages(streamName, {
+        startTime: pastTime,
+        limit: 10,
+      });
+      assert.ok(msgs.length >= 3, `Expected >= 3 messages, got ${msgs.length}`);
+    });
+  });
+
+  // ─── KV Watch ─────────────────────────────────────────────
+
+  suite("KV Watch", () => {
+    const connId = uniqueName("watch_conn");
+    const bucketName = uniqueName("watch_bucket");
+
+    suiteSetup(async function () {
+      this.timeout(10000);
+      await api.connectionManager.addConnection({
+        id: connId, name: "Watch Tests", servers: [NATS_URL],
+        auth: { type: "anonymous" },
+      });
+      await api.connectionManager.connect(connId);
+      const svc = api.getServices(connId)!;
+      await svc.kv.createBucket(bucketName);
+      await svc.kv.put(bucketName, "watched", encoder.encode("initial"));
+    });
+
+    suiteTeardown(async () => {
+      const svc = api.getServices(connId);
+      try { await svc?.kv.deleteBucket(bucketName); } catch { /* ok */ }
+      try { await api.connectionManager.disconnect(connId); } catch { /* ok */ }
+      try { await api.connectionManager.removeConnection(connId); } catch { /* ok */ }
+    });
+
+    test("watchEntries yields initial value", async function () {
+      this.timeout(10000);
+      const svc = api.getServices(connId)! as unknown as {
+        kv: { watchEntries(bucket: string, key?: string): AsyncIterable<KvEntry> };
+      };
+      let found = false;
+      for await (const entry of svc.kv.watchEntries(bucketName, "watched")) {
+        assert.strictEqual(entry.key, "watched");
+        assert.strictEqual(entry.value, "initial");
+        found = true;
+        break; // Just check the first entry
+      }
+      assert.ok(found, "watchEntries should yield at least one entry");
+    });
+  });
+
+  // ─── Object Store ─────────────────────────────────────────
+
+  suite("Object Store Extended", () => {
+    const connId = uniqueName("obj_conn");
+
+    suiteSetup(async function () {
+      this.timeout(10000);
+      await api.connectionManager.addConnection({
+        id: connId, name: "Obj Tests", servers: [NATS_URL],
+        auth: { type: "anonymous" },
+      });
+      await api.connectionManager.connect(connId);
+    });
+
+    suiteTeardown(async () => {
+      try { await api.connectionManager.disconnect(connId); } catch { /* ok */ }
+      try { await api.connectionManager.removeConnection(connId); } catch { /* ok */ }
+    });
+
+    test("listStores returns array", async () => {
+      const svc = api.getServices(connId)!;
+      const stores = await svc.obj.listStores();
+      assert.ok(Array.isArray(stores));
+    });
+  });
+
+  // ─── Monitoring ───────────────────────────────────────────
+
+  suite("Monitoring", () => {
+    // The monitoring service uses HTTP to hit the NATS monitoring endpoints
+    // CI has monitoring on port 8222
+    const monUrl = "http://localhost:8222";
+    let monSvc: { getVarz(): Promise<Record<string, unknown>>; getConnz(opts?: Record<string, unknown>): Promise<Record<string, unknown>>; getJsz(): Promise<Record<string, unknown>>; getAccountz(): Promise<Record<string, unknown>> };
+
+    suiteSetup(function () {
+      monSvc = (api as unknown as { createMonitoringService(url: string): typeof monSvc }).createMonitoringService(monUrl);
+    });
+
+    test("getVarz returns server info", async function () {
+      this.timeout(10000);
+      const varz = await monSvc.getVarz();
+      assert.ok(varz.server_id, "Missing server_id");
+      assert.ok(varz.version, "Missing version");
+      assert.ok(typeof varz.uptime === "string", "Missing uptime");
+      assert.ok(typeof varz.connections === "number", "Missing connections count");
+      assert.ok(typeof varz.mem === "number", "Missing mem");
+    });
+
+    test("getConnz returns connections", async function () {
+      this.timeout(10000);
+      const connz = await monSvc.getConnz();
+      assert.ok(typeof connz.num_connections === "number");
+      assert.ok(Array.isArray(connz.connections));
+    });
+
+    test("getJsz returns JetStream info", async function () {
+      this.timeout(10000);
+      const jsz = await monSvc.getJsz();
+      assert.ok(typeof jsz.memory === "number", "Missing memory");
+      assert.ok(typeof jsz.storage === "number", "Missing storage");
+      assert.ok(jsz.api, "Missing api stats");
+    });
+
+    test("getAccountz returns accounts", async function () {
+      this.timeout(10000);
+      const accountz = await monSvc.getAccountz();
+      assert.ok(accountz.server_id, "Missing server_id");
+      assert.ok(Array.isArray(accountz.accounts), "Missing accounts array");
+    });
+  });
+
+  // ─── Bookmarks ────────────────────────────────────────────
+
+  suite("Bookmarks", () => {
+    let bookmarks: {
+      getSavedSubscriptions(): Array<{ name: string; subject: string }>;
+      saveSubscription(sub: { name: string; subject: string }): Promise<void>;
+      deleteSubscription(name: string): Promise<void>;
+      getSavedTemplates(): Array<{ name: string; subject: string; payload: string; headers: Record<string, string> }>;
+      saveTemplate(t: { name: string; subject: string; payload: string; headers: Record<string, string> }): Promise<void>;
+      deleteTemplate(name: string): Promise<void>;
+      getMessageBookmarks(): Array<{ name: string; stream: string; sequence: number; subject: string }>;
+      saveMessageBookmark(b: { name: string; stream: string; sequence: number; subject: string }): Promise<void>;
+      deleteMessageBookmark(name: string): Promise<void>;
+    };
+
+    suiteSetup(() => {
+      bookmarks = (api as unknown as { bookmarks: typeof bookmarks }).bookmarks;
+    });
+
+    test("save and retrieve subscription", async () => {
+      await bookmarks.saveSubscription({ name: "test-sub", subject: "orders.>" });
+      const subs = bookmarks.getSavedSubscriptions();
+      assert.ok(subs.some((s) => s.name === "test-sub" && s.subject === "orders.>"));
+    });
+
+    test("delete subscription", async () => {
+      await bookmarks.deleteSubscription("test-sub");
+      const subs = bookmarks.getSavedSubscriptions();
+      assert.ok(!subs.some((s) => s.name === "test-sub"));
+    });
+
+    test("save and retrieve template", async () => {
+      await bookmarks.saveTemplate({
+        name: "test-template",
+        subject: "orders.create",
+        payload: '{"item":"widget"}',
+        headers: { "Content-Type": "application/json" },
+      });
+      const templates = bookmarks.getSavedTemplates();
+      const t = templates.find((t) => t.name === "test-template");
+      assert.ok(t);
+      assert.strictEqual(t.subject, "orders.create");
+      assert.strictEqual(t.payload, '{"item":"widget"}');
+    });
+
+    test("delete template", async () => {
+      await bookmarks.deleteTemplate("test-template");
+      const templates = bookmarks.getSavedTemplates();
+      assert.ok(!templates.some((t) => t.name === "test-template"));
+    });
+
+    test("save and retrieve message bookmark", async () => {
+      await bookmarks.saveMessageBookmark({
+        name: "important-msg",
+        stream: "ORDERS",
+        sequence: 42,
+        subject: "orders.created",
+      });
+      const bms = bookmarks.getMessageBookmarks();
+      const bm = bms.find((b) => b.name === "important-msg");
+      assert.ok(bm);
+      assert.strictEqual(bm.stream, "ORDERS");
+      assert.strictEqual(bm.sequence, 42);
+    });
+
+    test("delete message bookmark", async () => {
+      await bookmarks.deleteMessageBookmark("important-msg");
+      const bms = bookmarks.getMessageBookmarks();
+      assert.ok(!bms.some((b) => b.name === "important-msg"));
+    });
+
+    test("overwrite existing bookmark with same name", async () => {
+      await bookmarks.saveSubscription({ name: "dup", subject: "a.>" });
+      await bookmarks.saveSubscription({ name: "dup", subject: "b.>" });
+      const subs = bookmarks.getSavedSubscriptions();
+      const dups = subs.filter((s) => s.name === "dup");
+      assert.strictEqual(dups.length, 1);
+      assert.strictEqual(dups[0].subject, "b.>");
+      await bookmarks.deleteSubscription("dup");
     });
   });
 });
