@@ -10,6 +10,8 @@ eslint.config.*
 tsconfig.json
 esbuild.config.mjs
 vitest.config.ts
+vitest.integration.config.ts
+wdio.conf.ts
 **/*.map
 **/*.vsix
 *.md
