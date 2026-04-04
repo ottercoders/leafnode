@@ -13,6 +13,8 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    outputs:
+      extension-changed: ${{ steps.filter.outputs.extension }}
 
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +23,20 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Check for extension changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            extension:
+              - 'src/**'
+              - 'webview-ui/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'esbuild.config.mjs'
+              - 'resources/**'
+              - 'schemas/**'
 
       - name: Start NATS with JetStream
         run: |
@@ -67,9 +83,11 @@ jobs:
           reporter: java-junit
 
       - name: Package VSIX
+        if: steps.filter.outputs.extension == 'true'
         run: npx vsce package --no-dependencies -o leafnode.vsix
 
       - name: Upload VSIX artifact
+        if: steps.filter.outputs.extension == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: leafnode-vsix
@@ -79,7 +97,7 @@ jobs:
   release:
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build-and-test.outputs.extension-changed == 'true'
 
     steps:
       - uses: actions/checkout@v4
