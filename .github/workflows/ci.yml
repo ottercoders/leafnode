@@ -92,9 +92,10 @@ jobs:
       - name: Create release
         run: |
           SHA_SHORT=$(git rev-parse --short HEAD)
-          TAG="build-${SHA_SHORT}"
+          TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
+          TAG="build-${TIMESTAMP}-${SHA_SHORT}"
           gh release create "$TAG" leafnode.vsix \
-            --title "Build ${SHA_SHORT}" \
+            --title "Build ${TIMESTAMP} (${SHA_SHORT})" \
             --notes "Automated build from commit ${GITHUB_SHA}" \
             --target "$GITHUB_SHA" \
             --prerelease
