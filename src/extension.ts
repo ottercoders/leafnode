@@ -139,10 +139,20 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
   connectionManager.onDidChangeConnectionStatus(updateStatusBar);
   connectionManager.onDidChangeConnections(updateStatusBar);
 
-  // Helper: get first connected connection ID
-  function getActiveConnectionId(): string | undefined {
+  // Helper: get active connection ID — shows picker if multiple connected
+  async function getActiveConnectionId(): Promise<string | undefined> {
     const ids = connectionManager.getConnectedIds();
-    return ids[0];
+    if (ids.length === 0) return undefined;
+    if (ids.length === 1) return ids[0];
+    const configs = connectionManager.getSavedConnections();
+    const pick = await vscode.window.showQuickPick(
+      ids.map((id) => {
+        const c = configs.find((cfg) => cfg.id === id);
+        return { label: c?.name ?? id, description: c?.servers[0], id };
+      }),
+      { placeHolder: "Select connection" },
+    );
+    return pick?.id;
   }
 
   // Commands
@@ -262,6 +272,55 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
         `Imported ${imported} NATS context${imported !== 1 ? "s" : ""}.`,
       );
     }),
+
+    // Per-connection context menu commands
+    vscode.commands.registerCommand("leafnode.connection.viewHealth",
+      async (item?: ConnectionTreeItem) => {
+        if (!item) return;
+        const rtt = await connectionManager.ping(item.config.id);
+        if (rtt !== undefined) {
+          vscode.window.showInformationMessage(
+            `${item.config.name}: RTT ${rtt}ms — ${item.config.servers[0]}`,
+          );
+        } else {
+          vscode.window.showWarningMessage(
+            `${item.config.name}: Unable to ping (not connected)`,
+          );
+        }
+      },
+    ),
+
+    vscode.commands.registerCommand("leafnode.connection.openPubSub",
+      (item?: ConnectionTreeItem) => {
+        if (!item) return;
+        const connId = item.config.id;
+        const panelId = `pubsub:${connId}`;
+        const panel = panelManager.createOrShow(
+          panelId,
+          `Pub/Sub: ${item.config.name}`,
+          "pub-sub",
+          vscode.ViewColumn.One,
+        );
+        messageRouter.registerPanel(panel, panelId);
+        panel.webview.postMessage({ type: "init", connectionId: connId });
+      },
+    ),
+
+    vscode.commands.registerCommand("leafnode.connection.openMonitor",
+      (item?: ConnectionTreeItem) => {
+        if (!item) return;
+        const connId = item.config.id;
+        const panelId = `monitor:${connId}`;
+        const panel = panelManager.createOrShow(
+          panelId,
+          `Monitor: ${item.config.name}`,
+          "server-monitor",
+          vscode.ViewColumn.One,
+        );
+        messageRouter.registerPanel(panel, panelId);
+        panel.webview.postMessage({ type: "init", connectionId: connId });
+      },
+    ),
 
     // Export connections
     vscode.commands.registerCommand("leafnode.exportConnections", async () => {
@@ -416,7 +475,7 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
 
     // Stream CRUD commands
     vscode.commands.registerCommand("leafnode.streams.create", async () => {
-      const connId = getActiveConnectionId();
+      const connId = await getActiveConnectionId();
       if (!connId) {
         vscode.window.showWarningMessage("Connect to a NATS server first.");
         return;
@@ -682,8 +741,8 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
     ),
 
     // Pub/Sub command
-    vscode.commands.registerCommand("leafnode.openPubSub", () => {
-      const connId = getActiveConnectionId();
+    vscode.commands.registerCommand("leafnode.openPubSub", async () => {
+      const connId = await getActiveConnectionId();
       if (!connId) {
         vscode.window.showWarningMessage("Connect to a NATS server first.");
         return;
@@ -747,7 +806,7 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
     ),
 
     vscode.commands.registerCommand("leafnode.kv.createBucket", async () => {
-      const connId = getActiveConnectionId();
+      const connId = await getActiveConnectionId();
       if (!connId) {
         vscode.window.showWarningMessage("Connect to a NATS server first.");
         return;
@@ -812,7 +871,7 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
 
     vscode.commands.registerCommand("leafnode.kv.createKey",
       async (item?: { connectionId: string; bucket: string }) => {
-        const connId = item?.connectionId ?? getActiveConnectionId();
+        const connId = item?.connectionId ?? await getActiveConnectionId();
         const bucketName = item?.bucket;
         if (!connId) {
           vscode.window.showWarningMessage("Connect to a NATS server first.");
@@ -933,8 +992,8 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
     }),
 
     // Server Monitor command
-    vscode.commands.registerCommand("leafnode.openServerMonitor", () => {
-      const connId = getActiveConnectionId();
+    vscode.commands.registerCommand("leafnode.openServerMonitor", async () => {
+      const connId = await getActiveConnectionId();
       if (!connId) {
         vscode.window.showWarningMessage("Connect to a NATS server first.");
         return;

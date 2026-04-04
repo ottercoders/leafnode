@@ -104,7 +104,8 @@ export class ConnectionManager implements vscode.Disposable {
     const mc = this.connections.get(id);
     if (!mc) return;
     if (mc.nc) {
-      await mc.nc.drain().catch(() => {});
+      await this.forceClose(mc.nc);
+      mc.nc = null;
     }
     this.connections.delete(id);
     await this.persistConnections();
@@ -166,9 +167,23 @@ export class ConnectionManager implements vscode.Disposable {
   async disconnect(id: string): Promise<void> {
     const mc = this.connections.get(id);
     if (!mc?.nc) return;
-    await mc.nc.drain().catch(() => {});
+    const nc = mc.nc;
     mc.nc = null;
     this.setStatus(id, "disconnected");
+    await this.forceClose(nc);
+  }
+
+  private async forceClose(nc: NatsConnection): Promise<void> {
+    try {
+      await Promise.race([
+        nc.drain(),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error("drain timeout")), 3000),
+        ),
+      ]);
+    } catch {
+      await nc.close().catch(() => {});
+    }
   }
 
   private setStatus(id: string, status: ConnectionStatus): void {
@@ -201,10 +216,9 @@ export class ConnectionManager implements vscode.Disposable {
   }
 
   dispose(): void {
-    const drainPromises: Promise<void>[] = [];
     for (const mc of this.connections.values()) {
       if (mc.nc) {
-        drainPromises.push(mc.nc.drain().catch(() => {}));
+        mc.nc.close().catch(() => {});
         mc.nc = null;
       }
     }

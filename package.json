@@ -104,6 +104,24 @@
         "icon": "$(trash)"
       },
       {
+        "command": "leafnode.connection.viewHealth",
+        "title": "View Health",
+        "category": "Leafnode",
+        "icon": "$(heart)"
+      },
+      {
+        "command": "leafnode.connection.openPubSub",
+        "title": "Open Pub/Sub",
+        "category": "Leafnode",
+        "icon": "$(radio-tower)"
+      },
+      {
+        "command": "leafnode.connection.openMonitor",
+        "title": "Open Server Monitor",
+        "category": "Leafnode",
+        "icon": "$(dashboard)"
+      },
+      {
         "command": "leafnode.importNatsContext",
         "title": "Import NATS CLI Contexts",
         "category": "Leafnode",
@@ -365,6 +383,21 @@
           "command": "leafnode.disconnect",
           "when": "view == leafnode.connections && viewItem == connection:connected",
           "group": "inline"
+        },
+        {
+          "command": "leafnode.connection.viewHealth",
+          "when": "view == leafnode.connections && viewItem == connection:connected",
+          "group": "1_actions"
+        },
+        {
+          "command": "leafnode.connection.openPubSub",
+          "when": "view == leafnode.connections && viewItem == connection:connected",
+          "group": "1_actions"
+        },
+        {
+          "command": "leafnode.connection.openMonitor",
+          "when": "view == leafnode.connections && viewItem == connection:connected",
+          "group": "1_actions"
         },
         {
           "command": "leafnode.editConnection",
