@@ -7,10 +7,13 @@ export class ConnectionTreeItem extends vscode.TreeItem {
     public readonly config: ConnectionConfig,
     status: ConnectionStatus,
     error?: string,
+    rtt?: number,
   ) {
     super(config.name, vscode.TreeItemCollapsibleState.None);
 
-    this.description = config.servers[0];
+    this.description = rtt !== undefined
+      ? `${config.servers[0]} (${rtt}ms)`
+      : config.servers[0];
     this.contextValue = `connection:${status}`;
     this.tooltip = error
       ? `${config.name} — ${status}: ${error}`
@@ -58,14 +61,18 @@ export class ConnectionsTreeProvider
     return element;
   }
 
-  getChildren(): ConnectionTreeItem[] {
-    return this.manager.getSavedConnections().map(
-      (config) =>
-        new ConnectionTreeItem(
-          config,
-          this.manager.getStatus(config.id),
-          this.manager.getError(config.id),
-        ),
-    );
+  async getChildren(): Promise<ConnectionTreeItem[]> {
+    const configs = this.manager.getSavedConnections();
+    const items: ConnectionTreeItem[] = [];
+    for (const config of configs) {
+      const status = this.manager.getStatus(config.id);
+      const error = this.manager.getError(config.id);
+      let rtt: number | undefined;
+      if (status === "connected") {
+        rtt = await this.manager.ping(config.id);
+      }
+      items.push(new ConnectionTreeItem(config, status, error, rtt));
+    }
+    return items;
   }
 }

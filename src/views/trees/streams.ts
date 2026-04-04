@@ -9,7 +9,9 @@ type StreamTreeElement =
   | StreamNode
   | ConsumersGroupNode
   | ConsumerNode
-  | SubjectsNode;
+  | SubjectsNode
+  | MirrorNode
+  | SourceNode;
 
 interface ConnectionNode {
   type: "connection";
@@ -40,12 +42,25 @@ interface SubjectsNode {
   subjects: string[];
 }
 
+interface MirrorNode {
+  type: "mirror";
+  name: string;
+  filterSubject?: string;
+}
+
+interface SourceNode {
+  type: "source";
+  name: string;
+  filterSubject?: string;
+}
+
 export class StreamsTreeProvider
   implements vscode.TreeDataProvider<StreamTreeElement>
 {
   private readonly _onDidChangeTreeData =
     new vscode.EventEmitter<StreamTreeElement | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+  private prevCounts = new Map<string, { messages: number; time: number }>();
 
   constructor(private readonly manager: ConnectionManager) {
     manager.onDidChangeConnectionStatus(() => this._onDidChangeTreeData.fire());
@@ -69,11 +84,24 @@ export class StreamsTreeProvider
 
       case "stream": {
         const s = element.stream;
+        const streamKey = `${element.connectionId}:${s.name}`;
+        const prevData = this.prevCounts.get(streamKey);
+        const now = Date.now();
+        let rateStr = "";
+        if (prevData && now - prevData.time > 0) {
+          const elapsed = (now - prevData.time) / 1000;
+          const rate = (s.state.messages - prevData.messages) / elapsed;
+          if (rate > 0) {
+            rateStr = ` (${formatCount(Math.round(rate))}/s)`;
+          }
+        }
+        this.prevCounts.set(streamKey, { messages: s.state.messages, time: now });
+
         const item = new vscode.TreeItem(
           s.name,
           vscode.TreeItemCollapsibleState.Collapsed,
         );
-        item.description = `${formatCount(s.state.messages)} msgs, ${formatBytes(s.state.bytes)}`;
+        item.description = `${formatCount(s.state.messages)} msgs, ${formatBytes(s.state.bytes)}${rateStr}`;
         item.iconPath = new vscode.ThemeIcon("database");
         item.contextValue = "stream";
         item.tooltip = `${s.name}\nMessages: ${s.state.messages}\nBytes: ${formatBytes(s.state.bytes)}\nSubjects: ${s.config.subjects.join(", ")}\nStorage: ${s.config.storage}\nRetention: ${s.config.retention}\nReplicas: ${s.config.replicas}`;
@@ -110,6 +138,24 @@ export class StreamsTreeProvider
         item.iconPath = new vscode.ThemeIcon("symbol-string");
         return item;
       }
+
+      case "mirror": {
+        const label = element.filterSubject
+          ? `Mirror of: ${element.name} (${element.filterSubject})`
+          : `Mirror of: ${element.name}`;
+        const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
+        item.iconPath = new vscode.ThemeIcon("mirror");
+        return item;
+      }
+
+      case "source": {
+        const label = element.filterSubject
+          ? `Source: ${element.name} (${element.filterSubject})`
+          : `Source: ${element.name}`;
+        const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
+        item.iconPath = new vscode.ThemeIcon("repo-forked");
+        return item;
+      }
     }
   }
 
@@ -141,6 +187,24 @@ export class StreamsTreeProvider
 
       case "stream": {
         const children: StreamTreeElement[] = [];
+        // Mirror info
+        if (element.stream.config.mirror) {
+          children.push({
+            type: "mirror",
+            name: element.stream.config.mirror.name,
+            filterSubject: element.stream.config.mirror.filterSubject,
+          });
+        }
+        // Sources info
+        if (element.stream.config.sources && element.stream.config.sources.length > 0) {
+          for (const src of element.stream.config.sources) {
+            children.push({
+              type: "source",
+              name: src.name,
+              filterSubject: src.filterSubject,
+            });
+          }
+        }
         // Subjects info
         if (element.stream.config.subjects.length > 0) {
           children.push({

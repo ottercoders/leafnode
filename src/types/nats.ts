@@ -14,6 +14,8 @@ export interface StreamConfigView {
   maxAge: number;
   maxMsgSize: number;
   discard: string;
+  mirror?: { name: string; filterSubject?: string };
+  sources?: Array<{ name: string; filterSubject?: string }>;
 }
 
 export interface StreamStateView {
@@ -59,6 +61,7 @@ export interface MessageQueryOpts {
   endSeq?: number;
   subject?: string;
   limit: number;
+  searchPattern?: string;
 }
 
 export interface KvBucketInfoView {

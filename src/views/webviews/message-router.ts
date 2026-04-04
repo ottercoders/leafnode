@@ -101,6 +101,20 @@ export class WebviewMessageRouter implements vscode.Disposable {
         break;
       }
 
+      case "stream:search": {
+        const svc = this.requireServices(message.connectionId);
+        const messages = await svc.jetstream.searchMessages(
+          message.stream,
+          message.pattern,
+          message.limit,
+        );
+        panel.webview.postMessage({
+          type: "stream:search:data",
+          messages,
+        });
+        break;
+      }
+
       case "publish": {
         const svc = this.requireServices(message.connectionId);
         const payload = new TextEncoder().encode(message.payload);
@@ -253,6 +267,14 @@ export class WebviewMessageRouter implements vscode.Disposable {
               type: "kv:watch:update",
               id: message.id,
               entry,
+            });
+            vscode.window.showInformationMessage(
+              `KV key "${entry.key}" updated (${entry.operation}, rev ${entry.revision})`,
+              "View",
+            ).then(action => {
+              if (action === "View") {
+                panel.reveal();
+              }
             });
           }
         })().catch(() => {
@@ -423,6 +445,14 @@ export class WebviewMessageRouter implements vscode.Disposable {
           type: "monitor:accountz:data",
           data: accountz,
         });
+        break;
+      }
+
+      case "message:republish": {
+        const svc = this.requireServices(message.connectionId);
+        const payload = new TextEncoder().encode(message.payload);
+        await svc.nats.publish(message.subject, payload, { headers: message.headers });
+        panel.webview.postMessage({ type: "message:republished" });
         break;
       }
 
