@@ -6,6 +6,8 @@ The Pub/Sub panel provides interactive publish, subscribe, and request/reply.
 
 Click the **radio tower** icon in the Streams view title bar, or run **Leafnode: Open Pub/Sub Panel** from the command palette.
 
+**Keyboard shortcut:** `Ctrl+Shift+Alt+M` (`Cmd+Shift+Alt+M` on macOS).
+
 ## Subscribe Tab
 
 - Enter a subject with wildcard support (`*`, `>`)

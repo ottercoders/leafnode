@@ -16,6 +16,10 @@ Install Leafnode from the [VS Code Marketplace](https://marketplace.visualstudio
 3. Enter your server URL (default: `nats://localhost:4222`)
 4. Click Connect
 
+::: tip NATS_URL Auto-Detection
+If the `NATS_URL` environment variable is set in your shell, you can run **Leafnode: Import Connection from NATS_URL** to create a connection from it instantly.
+:::
+
 Once connected, you'll see your streams, KV stores, and object stores populate in the sidebar tree views.
 
 ## Architecture

@@ -77,10 +77,23 @@ import { Objm } from "@nats-io/obj";
 ```bash
 npm run test                   # 51 unit tests (vitest)
 npm run test:integration       # integration tests (requires nats-server)
-npm run test:e2e               # 83 E2E tests (requires nats-server + Xvfb on Linux)
+npm run test:e2e               # 101 E2E tests (requires nats-server + Xvfb on Linux)
 ```
 
 E2E tests use `@vscode/test-electron` — they run inside the VS Code extension host with full API access. Tests cover connection lifecycle, stream/consumer/KV CRUD, pub/sub round-trips, monitoring endpoints, bookmarks, and webview panel loading. CI runs them with `xvfb-run` and reports results via `dorny/test-reporter`.
+
+## When Adding New Features
+
+Every new feature **must** include all of the following:
+
+1. **VitePress documentation** — Update the relevant guide page in `docs/guide/` and add new commands to `docs/reference/commands.md`. If a new guide page is needed, add it to the sidebar in `docs/.vitepress/config.mts`.
+2. **Unit tests** — Add tests in `test/unit/` for pure logic (utils, parsers, formatters). Run with `npm run test`.
+3. **E2E tests** — Add tests in `src/test/e2e/extension.test.ts` that verify the feature works end-to-end against a real NATS server. Update the local `LeafnodeAPI` interface if new service methods or manager methods are exposed. Run with `xvfb-run -a npm run test:e2e`.
+4. **README.md** — Update the features list if the feature is user-facing.
+5. **CLAUDE.md** — Update this file if the feature adds new source paths, commands, or changes architecture.
+6. **package.json** — Register new commands, menus, keybindings, and settings.
+
+Before merging, verify: `npm run typecheck && npm run lint && npm run build && npm run test && npm run docs:build`
 
 ## CI/CD
 
@@ -96,5 +109,5 @@ VitePress site at `docs/`. Run `npm run docs:dev` for local preview. Supports Me
 ## Roadmap
 
 Tracked as GitHub issues. Most phases are implemented:
-- **Implemented**: #1-#8, #10-#14, #16-#17, #20, #23, #25 (19 of 25 issues)
+- **Implemented**: #1-#8, #10-#14, #16-#17, #20, #23, #25, #30-#41 (31 issues)
 - **Open**: #9 (icon), #15 (schema support), #18 (cluster topology), #19 (services discovery), #21 (NATS config language), #22 (CodeLens), #24 (testing support)

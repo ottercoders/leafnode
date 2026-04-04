@@ -12,6 +12,9 @@ All commands are available via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+
 | `leafnode.disconnect` | Disconnect | Disconnect from a NATS server |
 | `leafnode.removeConnection` | Remove Connection | Remove a saved connection |
 | `leafnode.importNatsContext` | Import NATS CLI Contexts | Import connection configs from NATS CLI context files |
+| `leafnode.exportConnections` | Export Connections | Export all saved connections to a JSON file |
+| `leafnode.importConnections` | Import Connections | Import connections from a previously exported JSON file |
+| `leafnode.importFromEnv` | Import Connection from NATS_URL | Create a connection from the `NATS_URL` environment variable |
 
 ## Streams
 
@@ -25,6 +28,7 @@ All commands are available via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+
 | `leafnode.streams.purge` | Purge Stream | Remove all messages from a stream |
 | `leafnode.streams.seal` | Seal Stream | Make a stream read-only |
 | `leafnode.streams.delete` | Delete Stream | Permanently delete a stream |
+| `leafnode.streams.diff` | Compare Stream Config | Compare a stream's config with another stream or clipboard |
 
 ## Consumers
 
@@ -34,6 +38,7 @@ All commands are available via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+
 | `leafnode.consumers.delete` | Delete Consumer | Remove a consumer |
 | `leafnode.consumers.pause` | Pause Consumer | Temporarily stop message delivery |
 | `leafnode.consumers.resume` | Resume Consumer | Resume a paused consumer |
+| `leafnode.consumers.pullMessages` | Pull Messages | Pull N messages from a consumer for debugging |
 
 ## KV Stores
 
@@ -86,3 +91,11 @@ All commands are available via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+
 | Command | Title | Description |
 |---------|-------|-------------|
 | `leafnode.workspace.init` | Initialize Workspace Config | Generate a `.leafnode.json` template in the workspace root |
+
+## Keyboard Shortcuts
+
+| Shortcut | Command |
+|----------|---------|
+| `Ctrl+Shift+Alt+N` (`Cmd+Shift+Alt+N` on macOS) | Add Connection |
+| `Ctrl+Shift+Alt+M` (`Cmd+Shift+Alt+M` on macOS) | Open Pub/Sub Panel |
+| `Ctrl+Shift+Alt+J` (`Cmd+Shift+Alt+J` on macOS) | Open Server Monitor |
