@@ -279,6 +279,33 @@
         "title": "Initialize Workspace Config",
         "category": "Leafnode",
         "icon": "$(new-file)"
+      },
+      {
+        "command": "leafnode.exportConnections",
+        "title": "Export Connections",
+        "category": "Leafnode"
+      },
+      {
+        "command": "leafnode.importConnections",
+        "title": "Import Connections",
+        "category": "Leafnode"
+      },
+      {
+        "command": "leafnode.importFromEnv",
+        "title": "Import Connection from NATS_URL",
+        "category": "Leafnode"
+      },
+      {
+        "command": "leafnode.consumers.pullMessages",
+        "title": "Pull Messages",
+        "category": "Leafnode",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "leafnode.streams.diff",
+        "title": "Compare Stream Config",
+        "category": "Leafnode",
+        "icon": "$(diff)"
       }
     ],
     "menus": {
@@ -380,9 +407,19 @@
           "group": "2_manage"
         },
         {
+          "command": "leafnode.streams.diff",
+          "when": "view == leafnode.streams && viewItem == stream",
+          "group": "2_manage"
+        },
+        {
           "command": "leafnode.streams.delete",
           "when": "view == leafnode.streams && viewItem == stream",
           "group": "3_remove"
+        },
+        {
+          "command": "leafnode.consumers.pullMessages",
+          "when": "view == leafnode.streams && viewItem == consumer",
+          "group": "inline"
         },
         {
           "command": "leafnode.consumers.delete",
@@ -441,6 +478,23 @@
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "leafnode.addConnection",
+        "key": "ctrl+shift+alt+n",
+        "mac": "cmd+shift+alt+n"
+      },
+      {
+        "command": "leafnode.openPubSub",
+        "key": "ctrl+shift+alt+m",
+        "mac": "cmd+shift+alt+m"
+      },
+      {
+        "command": "leafnode.openServerMonitor",
+        "key": "ctrl+shift+alt+j",
+        "mac": "cmd+shift+alt+j"
+      }
+    ],
     "viewsWelcome": [
       {
         "view": "leafnode.connections",

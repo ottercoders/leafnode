@@ -62,6 +62,17 @@ export class ConnectionManager implements vscode.Disposable {
     return this.connections.get(id)?.nc ?? undefined;
   }
 
+  async ping(id: string): Promise<number | undefined> {
+    const mc = this.connections.get(id);
+    if (!mc?.nc) return undefined;
+    try {
+      const rtt = await mc.nc.rtt();
+      return rtt;
+    } catch {
+      return undefined;
+    }
+  }
+
   getConnectedIds(): string[] {
     return Array.from(this.connections.entries())
       .filter(([_, mc]) => mc.status === "connected")

@@ -22,6 +22,9 @@ import {
 import { createServices } from "./services";
 import { MonitoringService } from "./services/monitoring";
 import { BookmarksService } from "./services/bookmarks";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 
 function showError(prefix: string, err: unknown): void {
   const msg = err instanceof Error ? err.message : String(err);
@@ -260,6 +263,92 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
       );
     }),
 
+    // Export connections
+    vscode.commands.registerCommand("leafnode.exportConnections", async () => {
+      const configs = connectionManager.getSavedConnections();
+      if (configs.length === 0) {
+        vscode.window.showInformationMessage("No connections to export.");
+        return;
+      }
+      const safeConfigs = configs.map((c) => ({
+        ...c,
+        auth: { type: "anonymous" as const },
+      }));
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file("nats-connections.json"),
+        filters: { JSON: ["json"] },
+      });
+      if (!uri) return;
+      try {
+        fs.writeFileSync(uri.fsPath, JSON.stringify(safeConfigs, null, 2), "utf-8");
+        vscode.window.showInformationMessage(`Exported ${configs.length} connection(s) to ${uri.fsPath}`);
+      } catch (err) {
+        showError("Failed to export connections", err);
+      }
+    }),
+
+    // Import connections
+    vscode.commands.registerCommand("leafnode.importConnections", async () => {
+      const uris = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: { JSON: ["json"] },
+      });
+      if (!uris || uris.length === 0) return;
+      try {
+        const data = fs.readFileSync(uris[0].fsPath, "utf-8");
+        const imported = JSON.parse(data) as Array<{
+          id?: string;
+          name: string;
+          servers: string[];
+          monitoringUrl?: string;
+          auth?: { type: string };
+        }>;
+        if (!Array.isArray(imported)) {
+          vscode.window.showErrorMessage("Invalid connections file: expected an array.");
+          return;
+        }
+        const existingNames = new Set(connectionManager.getSavedConnections().map((c) => c.name));
+        let count = 0;
+        for (const conn of imported) {
+          if (existingNames.has(conn.name)) continue;
+          await connectionManager.addConnection({
+            id: conn.id ?? `${conn.name}-${Date.now()}`,
+            name: conn.name,
+            servers: conn.servers,
+            monitoringUrl: conn.monitoringUrl,
+            auth: { type: "anonymous" },
+          });
+          count++;
+        }
+        vscode.window.showInformationMessage(
+          `Imported ${count} connection(s). ${imported.length - count} skipped (duplicate names).`,
+        );
+      } catch (err) {
+        showError("Failed to import connections", err);
+      }
+    }),
+
+    // Import from NATS_URL
+    vscode.commands.registerCommand("leafnode.importFromEnv", async () => {
+      const natsUrl = process.env.NATS_URL;
+      if (!natsUrl) {
+        vscode.window.showInformationMessage("NATS_URL environment variable is not set.");
+        return;
+      }
+      const existing = connectionManager.getSavedConnections();
+      if (existing.some((c) => c.servers.includes(natsUrl))) {
+        vscode.window.showInformationMessage(`A connection for ${natsUrl} already exists.`);
+        return;
+      }
+      await connectionManager.addConnection({
+        id: `nats-url-${Date.now()}`,
+        name: `NATS_URL (${natsUrl})`,
+        servers: [natsUrl],
+        auth: { type: "anonymous" },
+      });
+      vscode.window.showInformationMessage(`Imported connection from NATS_URL: ${natsUrl}`);
+    }),
+
     // Stream commands
     vscode.commands.registerCommand("leafnode.streams.refresh", () => {
       streamsTree.refresh();
@@ -488,6 +577,106 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
           vscode.window.showInformationMessage(`Resumed consumer "${item.consumer.name}".`);
         } catch (err) {
           showError("Failed to resume consumer", err);
+        }
+      },
+    ),
+
+    // Consumer pull messages
+    vscode.commands.registerCommand("leafnode.consumers.pullMessages",
+      async (item: { connectionId: string; consumer: { stream: string; name: string } }) => {
+        const { createServices } = await import("./services");
+        const nc = connectionManager.getConnection(item.connectionId);
+        if (!nc) return;
+        try {
+          const msgs = await createServices(nc).jetstream.pullConsumerMessages(
+            item.consumer.stream,
+            item.consumer.name,
+            10,
+          );
+          if (msgs.length === 0) {
+            vscode.window.showInformationMessage("No messages available for this consumer.");
+            return;
+          }
+          const panelId = `messages:${item.connectionId}:${item.consumer.stream}:${item.consumer.name}`;
+          const panel = panelManager.createOrShow(
+            panelId,
+            `Messages: ${item.consumer.stream}/${item.consumer.name}`,
+            "message-browser",
+            vscode.ViewColumn.One,
+          );
+          messageRouter.registerPanel(panel, panelId);
+          panel.webview.postMessage({
+            type: "init",
+            connectionId: item.connectionId,
+            streamName: item.consumer.stream,
+          });
+          // Send pulled messages directly
+          panel.webview.postMessage({
+            type: "stream:messages:data",
+            messages: msgs,
+          });
+        } catch (err) {
+          showError("Failed to pull messages", err);
+        }
+      },
+    ),
+
+    // Stream config diff
+    vscode.commands.registerCommand("leafnode.streams.diff",
+      async (item: { connectionId: string; stream: { name: string } }) => {
+        const { createServices } = await import("./services");
+        const nc = connectionManager.getConnection(item.connectionId);
+        if (!nc) return;
+        try {
+          const svc = createServices(nc);
+          const streamInfo = await svc.jetstream.getStream(item.stream.name);
+          const streamJson = JSON.stringify(streamInfo.config, null, 2);
+
+          const choice = await vscode.window.showQuickPick(
+            ["Another Stream", "Clipboard"],
+            { placeHolder: "Compare with..." },
+          );
+          if (!choice) return;
+
+          let otherJson: string;
+          let otherLabel: string;
+
+          if (choice === "Another Stream") {
+            const streams = await svc.jetstream.listStreams();
+            const otherNames = streams
+              .map((s) => s.name)
+              .filter((n) => n !== item.stream.name);
+            if (otherNames.length === 0) {
+              vscode.window.showInformationMessage("No other streams to compare with.");
+              return;
+            }
+            const pick = await vscode.window.showQuickPick(otherNames, {
+              placeHolder: "Select stream to compare with",
+            });
+            if (!pick) return;
+            const otherInfo = await svc.jetstream.getStream(pick);
+            otherJson = JSON.stringify(otherInfo.config, null, 2);
+            otherLabel = pick;
+          } else {
+            otherJson = await vscode.env.clipboard.readText();
+            otherLabel = "Clipboard";
+          }
+
+          // Write to temp files for diff
+          const tmpDir = os.tmpdir();
+          const leftPath = path.join(tmpDir, `${item.stream.name}-config.json`);
+          const rightPath = path.join(tmpDir, `${otherLabel}-config.json`);
+          fs.writeFileSync(leftPath, streamJson, "utf-8");
+          fs.writeFileSync(rightPath, otherJson, "utf-8");
+
+          await vscode.commands.executeCommand(
+            "vscode.diff",
+            vscode.Uri.file(leftPath),
+            vscode.Uri.file(rightPath),
+            `${item.stream.name} <-> ${otherLabel}`,
+          );
+        } catch (err) {
+          showError("Failed to compare stream config", err);
         }
       },
     ),
@@ -855,6 +1044,22 @@ export function activate(context: vscode.ExtensionContext): LeafnodeAPI {
 
   const bookmarksService = new BookmarksService(context.globalState);
   messageRouter.setBookmarksService(bookmarksService);
+
+  // Auto-detect NATS_URL on activation
+  const natsUrl = process.env.NATS_URL;
+  if (natsUrl && connectionManager.getSavedConnections().length === 0) {
+    vscode.window
+      .showInformationMessage(
+        `NATS_URL detected (${natsUrl}). Import as connection?`,
+        "Import",
+        "Dismiss",
+      )
+      .then((action) => {
+        if (action === "Import") {
+          vscode.commands.executeCommand("leafnode.importFromEnv");
+        }
+      });
+  }
 
   return {
     panelManager,

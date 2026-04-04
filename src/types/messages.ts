@@ -65,6 +65,7 @@ export type ExtensionMessage =
   | { type: "obj:objects"; connectionId: string; store: string }
   | { type: "obj:info"; connectionId: string; store: string; name: string }
   | { type: "obj:delete"; connectionId: string; store: string; name: string }
+  | { type: "message:republish"; connectionId: string; subject: string; payload: string; headers?: Record<string, string> }
   | { type: "bookmarks:list" }
   | { type: "bookmarks:saveSubscription"; name: string; subject: string }
   | { type: "bookmarks:deleteSubscription"; name: string }
@@ -72,6 +73,7 @@ export type ExtensionMessage =
   | { type: "bookmarks:deleteTemplate"; name: string }
   | { type: "bookmarks:saveMessage"; bookmark: MessageBookmark }
   | { type: "bookmarks:deleteMessage"; name: string }
+  | { type: "stream:search"; connectionId: string; stream: string; pattern: string; limit?: number }
   | { type: "monitor:varz"; connectionId: string }
   | { type: "monitor:connz"; connectionId: string }
   | { type: "monitor:jsz"; connectionId: string }
@@ -98,6 +100,8 @@ export type WebviewMessage =
       templates: SavedTemplate[];
       bookmarks: MessageBookmark[];
     }
+  | { type: "stream:search:data"; messages: NatsMessageView[] }
+  | { type: "message:republished" }
   | { type: "error"; message: string }
   | { type: "monitor:varz:data"; data: VarzResponse }
   | { type: "monitor:connz:data"; data: ConnzResponse }

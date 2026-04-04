@@ -32,9 +32,18 @@
   let startTime = $state("");
   let endTime = $state("");
 
+  // Search state
+  let searchPattern = $state("");
+  let searching = $state(false);
+
   // Bookmark state
   let bookmarking = $state(false);
   let bookmarkName = $state("");
+
+  // Republish state
+  let republishing = $state(false);
+  let republishSubject = $state("");
+  let republishFeedback = $state("");
 
   // Derived
   let messageCount = $derived(messages.length);
@@ -54,13 +63,34 @@
       } else if (msg.type === "stream:messages:data") {
         messages = msg.messages;
         loading = false;
+      } else if (msg.type === "message:republished") {
+        republishing = false;
+        republishSubject = "";
+        republishFeedback = "Republished!";
+        setTimeout(() => { republishFeedback = ""; }, 2000);
+      } else if (msg.type === "stream:search:data") {
+        messages = msg.messages;
+        searching = false;
       } else if (msg.type === "error") {
         loading = false;
+        searching = false;
       }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   });
+
+  function searchMessages() {
+    if (!searchPattern.trim()) return;
+    searching = true;
+    vscode.postMessage({
+      type: "stream:search",
+      connectionId,
+      stream: streamName,
+      pattern: searchPattern.trim(),
+      limit: 50,
+    });
+  }
 
   function fetchMessages() {
     loading = true;
@@ -154,6 +184,33 @@
     bookmarkName = "";
   }
 
+  function startRepublish() {
+    if (!selectedMessage) return;
+    republishing = true;
+    republishSubject = selectedMessage.subject;
+  }
+
+  function confirmRepublish() {
+    if (!republishSubject.trim() || !selectedMessage) return;
+    const headers: Record<string, string> | undefined = selectedMessage.headers
+      ? Object.fromEntries(
+          Object.entries(selectedMessage.headers).map(([k, v]) => [k, v.join(", ")])
+        )
+      : undefined;
+    vscode.postMessage({
+      type: "message:republish",
+      connectionId,
+      subject: republishSubject.trim(),
+      payload: selectedMessage.payload,
+      headers,
+    });
+  }
+
+  function cancelRepublish() {
+    republishing = false;
+    republishSubject = "";
+  }
+
   let hasHeaders = $derived(
     selectedMessage?.headers != null && Object.keys(selectedMessage.headers).length > 0
   );
@@ -171,6 +228,11 @@
     <div class="toolbar-right">
       <input type="text" bind:value={subjectFilter} placeholder="Filter by subject..."
         class="filter-input" onkeydown={(e) => e.key === "Enter" && fetchMessages()} />
+      <input type="text" bind:value={searchPattern} placeholder="Search payload..."
+        class="filter-input" onkeydown={(e) => e.key === "Enter" && searchMessages()} disabled={searching} />
+      {#if searching}
+        <span class="badge">Searching...</span>
+      {/if}
       <div class="nav-group">
         <button class="secondary small" onclick={goFirst} title="First page">|&laquo;</button>
         <button class="secondary small" onclick={goPrev} title="Previous page">&laquo;</button>
@@ -236,7 +298,20 @@
           <button class="detail-tab" class:active={detailTab === "info"} onclick={() => detailTab = "info"}>Info</button>
         </div>
         <div class="detail-actions">
-          {#if bookmarking}
+          {#if republishing}
+            <input
+              type="text"
+              bind:value={republishSubject}
+              placeholder="Target subject..."
+              class="bookmark-input"
+              onkeydown={(e) => {
+                if (e.key === "Enter") confirmRepublish();
+                if (e.key === "Escape") cancelRepublish();
+              }}
+            />
+            <button class="small" onclick={confirmRepublish}>Republish</button>
+            <button class="secondary small" onclick={cancelRepublish}>Cancel</button>
+          {:else if bookmarking}
             <input
               type="text"
               bind:value={bookmarkName}
@@ -250,6 +325,10 @@
             <button class="small" onclick={confirmBookmark}>Save</button>
             <button class="secondary small" onclick={cancelBookmark}>Cancel</button>
           {:else}
+            {#if republishFeedback}
+              <span class="feedback">{republishFeedback}</span>
+            {/if}
+            <button class="icon-btn" onclick={startRepublish} title="Republish this message">&#x21b7;</button>
             <button class="icon-btn" onclick={startBookmark} title="Bookmark this message">&#x2605;</button>
           {/if}
           <button class="icon-btn" onclick={() => detailOpen = false} title="Close detail">&times;</button>
@@ -349,6 +428,9 @@
   .payload-header { display: flex; justify-content: flex-end; margin-bottom: 4px; }
   .payload-pre { margin: 0; }
   .json-viewer-wrap { padding: 4px 0; }
+
+  /* Feedback */
+  .feedback { font-size: 0.85em; color: var(--vscode-testing-iconPassed, #73c991); }
 
   /* Headers / Info */
   .headers-list, .info-list { padding: 4px 0; }

@@ -111,6 +111,44 @@ export class JetStreamService {
     return messages;
   }
 
+  async searchMessages(
+    streamName: string,
+    pattern: string,
+    limit: number = 20,
+  ): Promise<NatsMessageView[]> {
+    const stream = await this.js.streams.get(streamName);
+    const consumer = await stream.getConsumer({
+      deliver_policy: DeliverPolicy.All,
+    });
+
+    const messages: NatsMessageView[] = [];
+    const lowerPattern = pattern.toLowerCase();
+    const maxScan = limit * 50; // Scan up to 50x limit to find matches
+
+    const batch = await consumer.fetch({ max_messages: maxScan, expires: 10000 });
+    for await (const msg of batch) {
+      const { text, encoding } = toDisplayString(msg.data);
+      if (encoding === "utf8" && text.toLowerCase().includes(lowerPattern)) {
+        const headers: Record<string, string[]> | undefined = msg.headers
+          ? Object.fromEntries(
+              [...msg.headers.keys()].map((k) => [k, msg.headers!.values(k)]),
+            )
+          : undefined;
+        messages.push({
+          subject: msg.subject,
+          sequence: msg.seq,
+          timestamp: new Date(Number(BigInt(msg.info.timestampNanos) / 1_000_000n)).toISOString(),
+          headers,
+          payload: text,
+          payloadEncoding: encoding,
+          size: msg.data.length,
+        });
+        if (messages.length >= limit) break;
+      }
+    }
+    return messages;
+  }
+
   async purgeStream(name: string): Promise<void> {
     const jsm = await this.jsmPromise;
     await jsm.streams.purge(name);
@@ -226,6 +264,29 @@ export class JetStreamService {
     return toStreamInfoView(si);
   }
 
+  async pullConsumerMessages(
+    streamName: string,
+    consumerName: string,
+    limit: number = 10,
+  ): Promise<NatsMessageView[]> {
+    const stream = await this.js.streams.get(streamName);
+    const consumer = await stream.getConsumer(consumerName);
+    const messages: NatsMessageView[] = [];
+    const batch = await consumer.fetch({ max_messages: limit, expires: 5000 });
+    for await (const msg of batch) {
+      const { text, encoding } = toDisplayString(msg.data);
+      messages.push({
+        subject: msg.subject,
+        sequence: msg.seq,
+        timestamp: new Date(Number(BigInt(msg.info.timestampNanos) / 1_000_000n)).toISOString(),
+        payload: text,
+        payloadEncoding: encoding,
+        size: msg.data.length,
+      });
+    }
+    return messages;
+  }
+
   async sealStream(name: string): Promise<void> {
     const jsm = await this.jsmPromise;
     const current = await jsm.streams.info(name);
@@ -235,7 +296,7 @@ export class JetStreamService {
 }
 
 function toStreamInfoView(si: {
-  config: { name: string; subjects?: string[]; retention: string; storage: string; num_replicas: number; max_msgs: number; max_bytes: number; max_age: number; max_msg_size: number; discard: string };
+  config: { name: string; subjects?: string[]; retention: string; storage: string; num_replicas: number; max_msgs: number; max_bytes: number; max_age: number; max_msg_size: number; discard: string; mirror?: { name: string; filter_subject?: string }; sources?: Array<{ name: string; filter_subject?: string }> };
   state: { messages: number; bytes: number; first_seq: number; last_seq: number; first_ts: string; last_ts: string; consumer_count: number };
 }): StreamInfoView {
   return {
@@ -255,6 +316,8 @@ function toStreamConfigView(c: {
   max_age: number;
   max_msg_size: number;
   discard: string;
+  mirror?: { name: string; filter_subject?: string };
+  sources?: Array<{ name: string; filter_subject?: string }>;
 }): StreamConfigView {
   return {
     subjects: c.subjects ?? [],
@@ -266,6 +329,8 @@ function toStreamConfigView(c: {
     maxAge: c.max_age,
     maxMsgSize: c.max_msg_size,
     discard: c.discard,
+    mirror: c.mirror ? { name: c.mirror.name, filterSubject: c.mirror.filter_subject } : undefined,
+    sources: c.sources?.map(s => ({ name: s.name, filterSubject: s.filter_subject })),
   };
 }
 
