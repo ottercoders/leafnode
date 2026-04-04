@@ -22,6 +22,8 @@ Click **Edit** to switch to edit mode. Modify the value and click **Save** to pu
 
 Click **Watch** to enable real-time updates. A green "LIVE" badge indicates when watching is active. The editor auto-updates when the key changes.
 
+When a watched key changes, Leafnode shows a VS Code toast notification with the key name, operation type (PUT, DEL, PURGE), and revision number. This ensures you are alerted to changes even when the KV Editor panel is not visible.
+
 ### Key History
 
 Click **Show History** to see all revisions of a key with timestamps and operation types.

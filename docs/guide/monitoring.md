@@ -10,6 +10,8 @@ Your connection must have a **Monitoring URL** configured (e.g., `http://localho
 
 Run **Leafnode: Open Server Monitor** from the command palette.
 
+**Keyboard shortcut:** `Ctrl+Shift+Alt+J` (`Cmd+Shift+Alt+J` on macOS).
+
 ## Tabs
 
 ### Server
@@ -27,6 +29,10 @@ JetStream resource usage: stream/consumer counts, memory and storage used, API c
 ### Accounts
 
 List of NATS accounts configured on the server.
+
+## Connection Health Check
+
+Connected servers display their round-trip time (RTT) in the Connections tree item description. This provides a quick health indicator without needing to open the full monitoring dashboard. The RTT updates each time the connections tree refreshes.
 
 ## Auto-Refresh
 

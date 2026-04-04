@@ -6,15 +6,15 @@ Browse JetStream streams, inspect messages, publish/subscribe in real time, mana
 
 ## Features
 
-- **Connection Manager** — Add, connect, and manage multiple NATS servers. Import existing NATS CLI contexts. Supports anonymous, token, user/password, NKey, credentials file, and TLS certificate auth. Credentials stored securely via VS Code SecretStorage.
+- **Connection Manager** — Add, connect, and manage multiple NATS servers. Import existing NATS CLI contexts or auto-detect the `NATS_URL` environment variable. Export and import connections as JSON for easy sharing. Health check with RTT display. Supports anonymous, token, user/password, NKey, credentials file, and TLS certificate auth. Credentials stored securely via VS Code SecretStorage.
 
-- **Stream Explorer** — Browse JetStream streams with message counts, byte sizes, and consumer details. Create, edit, duplicate, seal, purge, and delete streams. Full consumer lifecycle management with pause/resume support.
+- **Stream Explorer** — Browse JetStream streams with message counts, byte sizes, real-time message rates, and consumer details. Visualize mirror and source stream relationships. Compare stream configs with the built-in diff editor. Create, edit, duplicate, seal, purge, and delete streams. Full consumer lifecycle management with pause/resume support and message pull for debugging.
 
-- **Message Browser** — Inspect messages by sequence range or time range. Filter by subject pattern. View headers and JSON-formatted payloads in a virtual-scrolled list. Bookmark messages for quick access.
+- **Message Browser** — Inspect messages by sequence range or time range. Filter by subject pattern. Search message payloads by text. Republish messages to a different subject. View headers and JSON-formatted payloads in a virtual-scrolled list. Bookmark messages for quick access.
 
 - **Pub/Sub Panel** — Subscribe to subjects with wildcard support and view live message feeds with color-coded subjects and real-time rate indicators. Publish messages with custom headers. Send request/reply with configurable timeouts. Filter messages with regex. Save subscriptions and publish templates. Export captured messages as JSON.
 
-- **KV Browser** — Browse Key-Value store buckets and keys in the sidebar. View, edit, and save key values with JSON formatting. Inspect key revision history. Watch keys for real-time updates. Create and delete buckets and keys.
+- **KV Browser** — Browse Key-Value store buckets and keys in the sidebar. View, edit, and save key values with JSON formatting. Inspect key revision history. Watch keys for real-time updates with toast notifications on changes. Create and delete buckets and keys.
 
 - **Object Stores** — Browse NATS Object Store contents with metadata viewer.
 
@@ -27,6 +27,8 @@ Browse JetStream streams, inspect messages, publish/subscribe in real time, mana
 - **NATS CLI Integration** — Run common NATS CLI commands from the VS Code command palette.
 
 - **Workspace Configuration** — Share connection settings via `.leafnode.json` with JSON Schema validation and IntelliSense.
+
+- **Keyboard Shortcuts** — Quick access to common actions: `Ctrl+Shift+Alt+N` (add connection), `Ctrl+Shift+Alt+M` (pub/sub), `Ctrl+Shift+Alt+J` (server monitor).
 
 ## Quick Start
 
