@@ -1786,4 +1786,102 @@ suite("Leafnode Extension E2E", () => {
       await svc.jetstream.deleteStream(stream);
     });
   });
+
+  // ─── Edge Cases ───────────────────────────────────────────
+
+  suite("Edge Cases", () => {
+    const connId = uniqueName("edge_conn");
+
+    suiteSetup(async function () {
+      this.timeout(10000);
+      await api.connectionManager.addConnection({
+        id: connId, name: "Edge Tests", servers: [NATS_URL],
+        auth: { type: "anonymous" },
+      });
+    });
+
+    suiteTeardown(async () => {
+      try { await api.connectionManager.disconnect(connId); } catch { /* ok */ }
+      try { await api.connectionManager.removeConnection(connId); } catch { /* ok */ }
+    });
+
+    test("double disconnect is idempotent", async function () {
+      this.timeout(10000);
+      await api.connectionManager.connect(connId);
+      await api.connectionManager.disconnect(connId);
+      // Second disconnect should not throw
+      await api.connectionManager.disconnect(connId);
+      assert.strictEqual(api.connectionManager.getStatus(connId), "disconnected");
+    });
+
+    test("connect to already-connected is idempotent", async function () {
+      this.timeout(10000);
+      await api.connectionManager.connect(connId);
+      // Second connect should return without error
+      await api.connectionManager.connect(connId);
+      assert.strictEqual(api.connectionManager.getStatus(connId), "connected");
+      await api.connectionManager.disconnect(connId);
+    });
+
+    test("getServices returns undefined after disconnect", async function () {
+      this.timeout(10000);
+      await api.connectionManager.connect(connId);
+      assert.ok(api.getServices(connId), "Should have services when connected");
+      await api.connectionManager.disconnect(connId);
+      assert.strictEqual(api.getServices(connId), undefined, "Should be undefined after disconnect");
+    });
+
+    test("disconnect then reconnect works", async function () {
+      this.timeout(10000);
+      await api.connectionManager.connect(connId);
+      await api.connectionManager.disconnect(connId);
+      await api.connectionManager.connect(connId);
+      assert.strictEqual(api.connectionManager.getStatus(connId), "connected");
+      const svc = api.getServices(connId);
+      assert.ok(svc, "Services should be available after reconnect");
+      await api.connectionManager.disconnect(connId);
+    });
+
+    test("rapid connect-disconnect cycle", async function () {
+      this.timeout(15000);
+      for (let i = 0; i < 3; i++) {
+        await api.connectionManager.connect(connId);
+        assert.strictEqual(api.connectionManager.getStatus(connId), "connected");
+        await api.connectionManager.disconnect(connId);
+        assert.strictEqual(api.connectionManager.getStatus(connId), "disconnected");
+      }
+    });
+
+    test("remove connection while connected", async function () {
+      this.timeout(10000);
+      const tempId = uniqueName("temp");
+      await api.connectionManager.addConnection({
+        id: tempId, name: "Temp", servers: [NATS_URL],
+        auth: { type: "anonymous" },
+      });
+      await api.connectionManager.connect(tempId);
+      assert.strictEqual(api.connectionManager.getStatus(tempId), "connected");
+      // Remove should disconnect and remove
+      await api.connectionManager.removeConnection(tempId);
+      const saved = api.connectionManager.getSavedConnections();
+      assert.ok(!saved.some((c) => c.id === tempId), "Should be removed");
+    });
+
+    test("operations after disconnect return gracefully", async function () {
+      this.timeout(10000);
+      await api.connectionManager.connect(connId);
+      assert.ok(api.getServices(connId), "Services available before disconnect");
+      await api.connectionManager.disconnect(connId);
+      // getServices should return undefined for disconnected
+      const newSvc = api.getServices(connId);
+      assert.strictEqual(newSvc, undefined);
+    });
+
+    test("per-connection context commands exist", async () => {
+      const all = await vscode.commands.getCommands(true);
+      assert.ok(all.includes("leafnode.connection.viewHealth"));
+      assert.ok(all.includes("leafnode.connection.openPubSub"));
+      assert.ok(all.includes("leafnode.connection.openMonitor"));
+    });
+  });
 });
